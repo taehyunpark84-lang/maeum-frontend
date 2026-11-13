@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StyleSheet,
   type ScrollViewInstance,
   Text,
   TextInput,
@@ -16,7 +17,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { places } from "../config/assets";
-import { Button, Copy, IconButton, styles } from "../components/ui";
+import { Button, Copy, IconButton, Sheet, styles } from "../components/ui";
 import { Sound } from "../components/Sound";
 import { useStore } from "../storage/store";
 import { ChatService, id, now } from "../services/mock";
@@ -36,6 +37,7 @@ export default function Chat({
   const [text, setText] = useState("");
   const [scenery, setScenery] = useState(false);
   const [keyboard, setKeyboard] = useState(false);
+  const [soundOpen, setSoundOpen] = useState(false);
   const scroll = useRef<ScrollViewInstance>(null);
   const atBottom = useRef(true);
   const sending = useRef(false);
@@ -113,42 +115,31 @@ export default function Chat({
     }
   }
   return (
-    <KeyboardAvoidingView
-      style={styles.screen}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
+    <ImageBackground source={p.background} style={styles.screen}>
       <StatusBar style="light" />
-      <ImageBackground source={p.background} style={{ flex: 1 }}>
-        <LinearGradient
-          colors={["#142019B0", "transparent"]}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 180,
-          }}
-        />
-        <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
-          <View
-            style={[styles.row, { paddingHorizontal: 16, paddingVertical: 8 }]}
-          >
+      <LinearGradient
+        pointerEvents="none"
+        colors={["#101E18C7", "#101E1800"]}
+        style={chatStyles.headerShade}
+      />
+      <LinearGradient
+        pointerEvents="none"
+        colors={["#101E1800", "#101E1866"]}
+        style={chatStyles.footerShade}
+      />
+      <KeyboardAvoidingView
+        style={chatStyles.fill}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <SafeAreaView style={chatStyles.fill} edges={["top", "bottom"]}>
+          <View style={chatStyles.toolbar}>
             <IconButton
               name="chevron-back"
               label="대화 보관 후 공간으로"
               light
               onPress={onBack}
             />
-            <Text
-              style={{
-                fontSize: 21,
-                fontWeight: "700",
-                color: "white",
-                flex: 1,
-              }}
-            >
-              {p.name}
-            </Text>
+            <Text style={chatStyles.placeName}>{p.name}</Text>
             <IconButton
               name="map-outline"
               label="장소 변경: 현재 대화 보관"
@@ -156,50 +147,29 @@ export default function Chat({
               onPress={onBack}
             />
           </View>
-          <View
-            style={{
-              flex: scenery ? 1 : keyboard ? 0.1 : 0.3,
-              justifyContent: "flex-end",
-              alignItems: "flex-end",
-              padding: 16,
-            }}
-          >
-            <Button
-              label={scenery ? "대화로 돌아가기" : "배경만 보기"}
-              icon={scenery ? "chatbubble-outline" : "image-outline"}
-              onPress={() => {
-                Keyboard.dismiss();
-                setScenery(!scenery);
-              }}
-              color="#34482DE0"
-            />
-          </View>
-          {!scenery && (
-            <SafeAreaView
-              edges={["bottom"]}
-              style={{
-                flex: keyboard ? 0.9 : 0.7,
-                backgroundColor: "#FFFCF7",
-                borderTopLeftRadius: 30,
-                borderTopRightRadius: 30,
-                padding: 16,
-                gap: 8,
-              }}
-            >
-              <View style={styles.row}>
+          {scenery ? (
+            <View style={chatStyles.sceneryActions}>
+              <Button
+                label="대화로 돌아가기"
+                icon="chatbubble-outline"
+                color="#23382BCC"
+                onPress={() => setScenery(false)}
+              />
+            </View>
+          ) : (
+            <>
+              <View style={chatStyles.profile}>
                 <Image source={p.avatar} style={styles.avatar} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 20, fontWeight: "700" }}>
-                    {p.character}
-                  </Text>
-                  <Text style={styles.badge}>AI 캐릭터 · 정해진 답변 시연</Text>
-                  <Text style={{ color: p.color, fontSize: 13, marginTop: 4 }}>
-                    {p.concept}
-                  </Text>
+                <View style={chatStyles.fill}>
+                  <Text style={chatStyles.characterName}>{p.character}</Text>
+                  {!keyboard && (
+                    <Text style={chatStyles.concept}>{p.concept}</Text>
+                  )}
                 </View>
                 <IconButton
                   name="book-outline"
                   label="그림일기 만들기"
+                  light
                   disabled={
                     pending ||
                     failed ||
@@ -210,8 +180,9 @@ export default function Chat({
               </View>
               <ScrollView
                 ref={scroll}
+                style={chatStyles.fill}
                 keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ gap: 16, paddingVertical: 16 }}
+                contentContainerStyle={chatStyles.messages}
                 scrollEventThrottle={100}
                 onScroll={(e) => {
                   const { layoutMeasurement, contentOffset, contentSize } =
@@ -224,35 +195,38 @@ export default function Chat({
                   if (atBottom.current)
                     scroll.current?.scrollToEnd({ animated: true });
                 }}
+                onLayout={() => {
+                  if (atBottom.current)
+                    scroll.current?.scrollToEnd({ animated: false });
+                }}
               >
                 {session.messages.map((m) => (
                   <View
                     key={m.id}
-                    style={{
-                      alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-                      maxWidth: "94%",
-                      flexDirection: "row",
-                      gap: 8,
-                    }}
+                    style={[
+                      chatStyles.messageRow,
+                      {
+                        alignSelf:
+                          m.role === "user" ? "flex-end" : "flex-start",
+                      },
+                    ]}
                   >
                     {m.role === "assistant" && (
                       <Image
                         source={p.avatar}
-                        style={{ width: 34, height: 34, borderRadius: 17 }}
+                        style={chatStyles.messageAvatar}
                       />
                     )}
-                    <View style={{ flexShrink: 1, gap: 4 }}>
+                    <View style={chatStyles.messageContent}>
                       <View
-                        style={{
-                          backgroundColor:
-                            m.role === "user" ? `${p.color}25` : "#F0EFE9",
-                          borderRadius: 22,
-                          padding: 14,
-                        }}
+                        style={[
+                          chatStyles.bubble,
+                          m.role === "user" && chatStyles.userBubble,
+                        ]}
                       >
                         <Copy>{m.text}</Copy>
                       </View>
-                      <Text style={{ color: "#687168", fontSize: 12 }}>
+                      <Text style={chatStyles.time}>
                         {new Date(m.createdAt).toLocaleTimeString("ko-KR", {
                           hour: "2-digit",
                           minute: "2-digit",
@@ -272,29 +246,146 @@ export default function Chat({
                   </View>
                 ))}
               </ScrollView>
-              {!keyboard && <Sound placeId={session.placeId} />}
-              <View style={styles.row}>
-                <TextInput
-                  accessibilityLabel="메시지"
-                  placeholder="마음을 이야기해 주세요"
-                  placeholderTextColor="#687168"
-                  multiline
-                  maxLength={3000}
-                  value={text}
-                  onChangeText={setText}
-                  style={[styles.input, { flex: 1, maxHeight: 100 }]}
-                />
-                <IconButton
-                  name="send"
-                  label="메시지 전송"
-                  disabled={pending || failed || !text.trim()}
-                  onPress={() => void send()}
-                />
+              <View style={chatStyles.footer}>
+                {!keyboard && (
+                  <View style={chatStyles.actions}>
+                    <Button
+                      label="소리 설정"
+                      icon="volume-medium-outline"
+                      color="#23382BBF"
+                      onPress={() => setSoundOpen(true)}
+                    />
+                    <IconButton
+                      name="image-outline"
+                      label="배경만 보기"
+                      light
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        setScenery(true);
+                      }}
+                    />
+                  </View>
+                )}
+                <View style={styles.row}>
+                  <TextInput
+                    accessibilityLabel="메시지"
+                    placeholder="마음을 이야기해 주세요"
+                    placeholderTextColor="#586257"
+                    multiline
+                    maxLength={3000}
+                    value={text}
+                    onChangeText={setText}
+                    style={[styles.input, chatStyles.input]}
+                  />
+                  <IconButton
+                    name="send"
+                    label="메시지 전송"
+                    disabled={pending || failed || !text.trim()}
+                    onPress={() => void send()}
+                  />
+                </View>
+                <Text style={chatStyles.demoNotice}>
+                  AI 캐릭터 · 정해진 답변 시연 · 음원 준비 중
+                </Text>
               </View>
-            </SafeAreaView>
+            </>
+          )}
+          {soundOpen && (
+            <Sheet title="소리 설정" onClose={() => setSoundOpen(false)}>
+              <Copy>{p.name}의 배경 소리</Copy>
+              <Sound placeId={session.placeId} />
+              <Button
+                label="완료"
+                color={p.color}
+                onPress={() => setSoundOpen(false)}
+              />
+            </Sheet>
           )}
         </SafeAreaView>
-      </ImageBackground>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </ImageBackground>
   );
 }
+
+const chatStyles = StyleSheet.create({
+  fill: { flex: 1 },
+  headerShade: { position: "absolute", top: 0, left: 0, right: 0, height: 270 },
+  footerShade: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 180,
+  },
+  toolbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  placeName: { flex: 1, fontSize: 21, fontWeight: "700", color: "#fff" },
+  profile: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+  },
+  characterName: { fontSize: 20, fontWeight: "700", color: "#fff" },
+  concept: { fontSize: 14, lineHeight: 22, color: "#F6F5ED", marginTop: 3 },
+  messages: {
+    flexGrow: 1,
+    justifyContent: "flex-end",
+    gap: 14,
+    paddingHorizontal: 16,
+    paddingTop: 32,
+    paddingBottom: 16,
+  },
+  messageRow: { maxWidth: "92%", flexDirection: "row", gap: 8 },
+  messageAvatar: { width: 32, height: 32, borderRadius: 16, marginTop: 4 },
+  messageContent: { flexShrink: 1, gap: 4 },
+  bubble: {
+    backgroundColor: "#FFFCF0D9",
+    borderRadius: 22,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  userBubble: { backgroundColor: "#E7EEDBD9" },
+  time: {
+    color: "#fff",
+    fontSize: 11,
+    paddingHorizontal: 8,
+    textShadowColor: "#142019",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  footer: { paddingHorizontal: 16, paddingBottom: 8, gap: 10 },
+  actions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  input: {
+    flex: 1,
+    maxHeight: 100,
+    borderRadius: 28,
+    backgroundColor: "#FFFCF0E0",
+    borderColor: "#FFFFFF99",
+  },
+  demoNotice: {
+    fontSize: 11,
+    lineHeight: 17,
+    color: "#fff",
+    textAlign: "center",
+    textShadowColor: "#142019",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  sceneryActions: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    padding: 20,
+  },
+});

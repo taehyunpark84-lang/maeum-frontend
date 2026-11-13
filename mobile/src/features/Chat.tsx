@@ -16,7 +16,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { places } from "../config/assets";
+import { places, audioSources } from "../config/assets";
 import { Button, Copy, IconButton, Sheet, styles } from "../components/ui";
 import { Sound } from "../components/Sound";
 import { useStore } from "../storage/store";
@@ -285,7 +285,10 @@ export default function Chat({
                   />
                 </View>
                 <Text style={chatStyles.demoNotice}>
-                  AI 캐릭터 · 정해진 답변 시연 · 음원 준비 중
+                  AI 캐릭터 · 정해진 답변 시연
+                  {audioSources[session.placeId] === null
+                    ? " · 음원 준비 중"
+                    : ""}
                 </Text>
               </View>
             </>

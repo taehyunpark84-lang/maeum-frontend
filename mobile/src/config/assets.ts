@@ -1,3 +1,5 @@
+import type { PlaceId } from "../types";
+
 export const places = {
   forest: {
     name: "숲속 쉼터",
@@ -6,7 +8,7 @@ export const places = {
     description: "활기가 필요한 날, 작은 즐거움을 함께 찾아요.",
     personality:
       "호기심 많고 장난스러운 다람쥐. 경쾌한 반말과 작은 농담으로 일상에 재미를 더해요.",
-    sound: "새소리 · 나뭇잎",
+    sound: "봄 숲의 새소리",
     color: "#526E46",
     greeting:
       "쪼르르, 토리 왔어! 오늘은 어떤 하루였어? 작은 이야기부터 들려줘.",
@@ -83,11 +85,13 @@ export const places = {
   },
 } as const;
 export const diaryArt = require("../../assets/diary/demo-art.png");
-export const audioSources = {
-  forest: null,
-  ocean: null,
-  cafe: null,
-  temple: null,
-  garden: null,
-  cathedral: null,
+// Bundled loop edits of the user-provided recordings for all six rooms.
+// Other synthetic drafts in assets/audio are intentionally not bundled/referenced.
+export const audioSources: Record<PlaceId, number | null> = {
+  forest: require("../../assets/audio/forest-loop-small.mp3"),
+  ocean: require("../../assets/audio/ocean-loop-small.mp3"),
+  cafe: require("../../assets/audio/cafe-loop-small.mp3"),
+  temple: require("../../assets/audio/temple-loop-small.mp3"),
+  garden: require("../../assets/audio/garden-loop-small.mp3"),
+  cathedral: require("../../assets/audio/cathedral-loop-small.mp3"),
 };

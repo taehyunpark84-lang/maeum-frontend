@@ -1,0 +1,55 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>다섯 공간의 반복 음원 확인</title><style>body{max-width:760px;margin:32px auto;padding:0 18px;background:#f6f3ec;color:#26382d;font:16px/1.7 system-ui}section{background:white;padding:24px;margin:22px 0;border-radius:18px}audio{width:100%}button{padding:10px;margin:8px 8px 0 0;cursor:pointer}h3{margin-bottom:4px}a{color:#306846}</style>
+<h1>다섯 공간의 반복 음원</h1><p>원본 녹음에 새로운 소리를 추가하지 않고, 끝과 시작을 겹쳐 편집했습니다. 아래에서 연결 부분과 연속 재생을 직접 확인하세요.</p>
+<p>①·②는 연결 상태를 확인하기 위해 WAV로 이어 붙인 파일입니다. ③의 MP3 반복 간격은 브라우저·앱 재생기에 따라 달라질 수 있습니다. 실제 앱에서도 확인이 필요합니다.</p><section><h2>비밀정원</h2>
+    <p>한 번 24초 · MP3 565KB · 겹침 2.5초</p>
+    <h3>① 연결 부분만 듣기</h3><p>4초 지점에서 끝과 시작이 연결됩니다.</p>
+    <audio controls preload="none" src="garden/garden-loop-boundary.wav"></audio>
+    <h3>② 세 번 연속 듣기</h3><p>24초와 48초가 반복 연결 지점입니다.</p>
+    <audio id="garden-proof" controls preload="none" src="garden/garden-loop-check-3x.wav"></audio>
+    <button onclick="jump('garden-proof',22)">첫 연결 2초 전부터</button>
+    <button onclick="jump('garden-proof',46)">두 번째 연결 2초 전부터</button>
+    <h3>③ 앱용 MP3 반복 듣기</h3><audio controls loop preload="none" src="garden/garden-loop-small.mp3"></audio>
+    <p><a download href="garden/garden-loop-small.mp3">MP3 저장</a> ·
+    <a download href="garden/garden-loop.wav">WAV 원본 저장</a></p></section><section><h2>성당</h2>
+    <p>한 번 17초 · MP3 401KB · 겹침 2.5초</p>
+    <h3>① 연결 부분만 듣기</h3><p>4초 지점에서 끝과 시작이 연결됩니다.</p>
+    <audio controls preload="none" src="cathedral/cathedral-loop-boundary.wav"></audio>
+    <h3>② 세 번 연속 듣기</h3><p>17초와 34초가 반복 연결 지점입니다.</p>
+    <audio id="cathedral-proof" controls preload="none" src="cathedral/cathedral-loop-check-3x.wav"></audio>
+    <button onclick="jump('cathedral-proof',15)">첫 연결 2초 전부터</button>
+    <button onclick="jump('cathedral-proof',32)">두 번째 연결 2초 전부터</button>
+    <h3>③ 앱용 MP3 반복 듣기</h3><audio controls loop preload="none" src="cathedral/cathedral-loop-small.mp3"></audio>
+    <p><a download href="cathedral/cathedral-loop-small.mp3">MP3 저장</a> ·
+    <a download href="cathedral/cathedral-loop.wav">WAV 원본 저장</a></p></section><section><h2>비 오는 카페</h2>
+    <p>한 번 17초 · MP3 401KB · 겹침 2.5초</p>
+    <h3>① 연결 부분만 듣기</h3><p>4초 지점에서 끝과 시작이 연결됩니다.</p>
+    <audio controls preload="none" src="cafe/cafe-loop-boundary.wav"></audio>
+    <h3>② 세 번 연속 듣기</h3><p>17초와 34초가 반복 연결 지점입니다.</p>
+    <audio id="cafe-proof" controls preload="none" src="cafe/cafe-loop-check-3x.wav"></audio>
+    <button onclick="jump('cafe-proof',15)">첫 연결 2초 전부터</button>
+    <button onclick="jump('cafe-proof',32)">두 번째 연결 2초 전부터</button>
+    <h3>③ 앱용 MP3 반복 듣기</h3><audio controls loop preload="none" src="cafe/cafe-loop-small.mp3"></audio>
+    <p><a download href="cafe/cafe-loop-small.mp3">MP3 저장</a> ·
+    <a download href="cafe/cafe-loop.wav">WAV 원본 저장</a></p></section><section><h2>고요한 산사</h2>
+    <p>한 번 6초 · MP3 143KB · 겹침 1.5초</p>
+    <h3>① 연결 부분만 듣기</h3><p>3초 지점에서 끝과 시작이 연결됩니다.</p>
+    <audio controls preload="none" src="temple/temple-loop-boundary.wav"></audio>
+    <h3>② 세 번 연속 듣기</h3><p>6초와 12초가 반복 연결 지점입니다.</p>
+    <audio id="temple-proof" controls preload="none" src="temple/temple-loop-check-3x.wav"></audio>
+    <button onclick="jump('temple-proof',4)">첫 연결 2초 전부터</button>
+    <button onclick="jump('temple-proof',10)">두 번째 연결 2초 전부터</button>
+    <h3>③ 앱용 MP3 반복 듣기</h3><audio controls loop preload="none" src="temple/temple-loop-small.mp3"></audio>
+    <p><a download href="temple/temple-loop-small.mp3">MP3 저장</a> ·
+    <a download href="temple/temple-loop.wav">WAV 원본 저장</a></p></section><section><h2>노을 바닷가</h2>
+    <p>한 번 20초 · MP3 471KB · 겹침 2.5초</p>
+    <h3>① 연결 부분만 듣기</h3><p>4초 지점에서 끝과 시작이 연결됩니다.</p>
+    <audio controls preload="none" src="ocean/ocean-loop-boundary.wav"></audio>
+    <h3>② 세 번 연속 듣기</h3><p>20초와 40초가 반복 연결 지점입니다.</p>
+    <audio id="ocean-proof" controls preload="none" src="ocean/ocean-loop-check-3x.wav"></audio>
+    <button onclick="jump('ocean-proof',18)">첫 연결 2초 전부터</button>
+    <button onclick="jump('ocean-proof',38)">두 번째 연결 2초 전부터</button>
+    <h3>③ 앱용 MP3 반복 듣기</h3><audio controls loop preload="none" src="ocean/ocean-loop-small.mp3"></audio>
+    <p><a download href="ocean/ocean-loop-small.mp3">MP3 저장</a> ·
+    <a download href="ocean/ocean-loop.wav">WAV 원본 저장</a></p></section>
+<script>const players=[...document.querySelectorAll('audio')];players.forEach(p=>{p.volume=.65;p.addEventListener('play',()=>players.forEach(q=>{if(q!==p)q.pause()}))});async function jump(id,time){const p=document.getElementById(id);try{if(p.readyState===0){p.load();await new Promise((resolve,reject)=>{p.addEventListener('loadedmetadata',resolve,{once:true});p.addEventListener('error',reject,{once:true})})}p.currentTime=time;await p.play()}catch(e){alert('재생 버튼을 눌러 다시 확인해주세요.')}}</script></html>

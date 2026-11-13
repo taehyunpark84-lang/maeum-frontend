@@ -7,6 +7,8 @@ export function initialState(): AppState {
       selectedPlaceId: "forest",
       volume: 0.5,
       audioEnabled: false,
+      audioMuted: false,
+      audioLoop: true,
     },
     sessions: [],
     diaries: [],
@@ -100,6 +102,9 @@ export function restore(raw: string | null): {
       throw Error();
     const state = x as unknown as AppState;
     state.settings.audioEnabled = false;
+    // Version 1 records predating real playback have neither field.
+    state.settings.audioMuted = x.settings.audioMuted === true;
+    state.settings.audioLoop = x.settings.audioLoop !== false;
     state.sessions.forEach((s) =>
       s.messages.forEach((m) => {
         if (m.status === "pending") m.status = "failed";

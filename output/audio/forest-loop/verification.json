@@ -1,0 +1,29 @@
+{
+  "source_file": "sspsurvival-birds-in-the-forest-birds-in-spring-351743.mp3",
+  "source_sha256": "8222195b5176120e8476a573645df88b12f230572a87d03395ede1892735093b",
+  "decoded_source_seconds": 30.192,
+  "selected_source_start_seconds": 0.7,
+  "selected_source_end_seconds": 27.2,
+  "overlap_seconds": 2.5,
+  "loop_seconds": 24,
+  "sample_rate": 32000,
+  "channels": 2,
+  "bits_per_sample_wav": 16,
+  "peak_dbfs": -12.55,
+  "rms_dbfs": -30.72,
+  "seam_step_pcm_units": 393,
+  "seam_step_percentile_among_normal_steps": 30.61,
+  "minimum_10ms_rms_near_boundary": 0.01199575712587187,
+  "proof_boundaries_seconds": [
+    24,
+    48
+  ],
+  "proof_is_three_exact_pcm_copies": true,
+  "bytes": {
+    "forest-loop-boundary-8s.wav": 1024044,
+    "forest-loop-check-3x.wav": 9216044,
+    "forest-loop-small.mp3": 578060,
+    "forest-loop.wav": 3072044
+  },
+  "limits": "Waveform checks only; subjective sound quality and native mobile playback still require listening tests."
+}

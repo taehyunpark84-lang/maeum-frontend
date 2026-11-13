@@ -42,6 +42,8 @@ export type Settings = {
   selectedPlaceId: PlaceId;
   volume: number;
   audioEnabled: false;
+  audioMuted: boolean;
+  audioLoop: boolean;
 };
 export type AppState = {
   version: 1;

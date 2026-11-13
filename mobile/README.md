@@ -42,7 +42,7 @@ npm.cmd start
 
 - AI 답변은 고정된 예시 응답입니다. 요약은 사용자 발화 모음 또는 제공된 데모 요약이며 감정은 직접 수정 가능한 시연 값입니다.
 - 그림과 시는 제공된 예시를 재사용하며 모든 화면에 예시 작품임을 표시합니다. 실제 맞춤 생성이 아닙니다.
-- 음원 파일이 없어 모든 장소의 source는 null입니다. 재생은 비활성, `음원 준비 중` 표시. 볼륨/음소거 설정만 저장하며 재생 중으로 표시하지 않습니다.
+- 6개 공간 모두 `assets/audio/*-loop-small.mp3` 음원 연결. 재생·일시정지·정지·반복·볼륨·음소거를 실제 구현했습니다. 각 공간에 맞는 사용자 제공 반복 음원이 앱에 포함됩니다. 추가 음원 등록과 재생 정책은 [음원 안내](../docs/AUDIO.md)를 참고하세요.
 - AsyncStorage는 개발용 평문 저장소입니다. 실제 민감정보를 넣지 마세요. 버전 필드·구조 검증·손상 복구·저장 실패 안내가 있습니다.
 - 앱을 강제 종료할 때 아직 쓰기 중이던 최신 변경은 저장되지 않을 수 있습니다. 제품 출시 전 암호화·보존·동기화 정책이 필요합니다.
 - 공개 Post는 Session/실명/감정/요약을 포함하지 않습니다. 사용자가 본문에 직접 적은 이름까지 자동 삭제하지는 않으므로 미리보기에서 검토합니다.
@@ -82,7 +82,7 @@ npx.cmd expo export --platform all
 | src/services/mock.ts | ChatService.send, DiaryService.summarize/generate, FeedService.publish를 FastAPI 어댑터로 교체. UI 직접 모델 호출 금지. AbortSignal 취소 계약 유지 |
 | src/types.ts | 서버 요청/응답과 개인 Session·Diary / 공개 ApprovedSnapshot·Post 계약 |
 | src/storage/store.tsx, model.ts | 로컬 저장, 검증/버전 이전, 추후 인증·DB 동기화 연결 |
-| src/config/assets.ts | 정적 이미지와 audioSources(null). 라이선스 확인 음원 확보 후 expo-audio 연결 |
+| src/config/assets.ts | 정적 이미지와 audioSources. 6개 장소 반복 MP3를 정적 require로 등록 |
 | src/features/Chat.tsx, DiaryEditor.tsx | 서비스 호출·오류·재시도·취소 처리 |
 
 실기기에서 FastAPI 주소는 `localhost`가 아니라 **개발 PC의 LAN IP**(예: `http://192.168.0.10:8000`)를 사용합니다. 운영은 HTTPS·인증을 구성합니다. AI 키는 서버 환경변수에만 두고 앱과 EXPO_PUBLIC 변수에 넣지 않습니다. 서버 응답 검증·타임아웃·중복 요청 방지 키·운영 신고 체계는 백엔드 연동 시 추가합니다.

@@ -25,7 +25,8 @@ import {
   colors,
 } from "../components/ui";
 import { Sound } from "../components/Sound";
-import { places, diaryArt } from "../config/assets";
+import { places, diaryArt, audioSources } from "../config/assets";
+import { useAudioController } from "../components/AmbientAudioProvider";
 import { useStore } from "../storage/store";
 import { initialState } from "../storage/model";
 import { mockConfig, newSession } from "../services/mock";
@@ -64,6 +65,18 @@ export default function App() {
   const placeId = state.settings.selectedPlaceId;
   const p = places[placeId];
   const session = state.sessions.find((s) => s.id === active);
+  const audio = useAudioController();
+  const audioPlace =
+    !ready || !state.settings.nickname || editor
+      ? null
+      : (session?.placeId ??
+        (modal?.type === "intro" || modal?.type === "settings"
+          ? placeId
+          : null));
+  useEffect(() => {
+    audio.select(audioPlace, audioPlace ? audioSources[audioPlace] : null);
+  }, [audio, audioPlace]);
+  useEffect(() => () => audio.dispose(), [audio]);
   useEffect(() => {
     if (active || editor) return;
     const subscription = BackHandler.addEventListener(
@@ -244,7 +257,7 @@ export default function App() {
                 setModal({ type: "intro" });
               }}
             />
-            <Copy muted>AI 캐릭터와의 시연 대화 · 배경 음원 준비 중</Copy>
+            <Copy muted>AI 캐릭터와의 시연 대화 · 공간별 소리 설정</Copy>
             <Button
               label={`${p.name} 들어가기`}
               color={p.color}

@@ -1,0 +1,56 @@
+[
+  {
+    "file": "forest.wav",
+    "name": "숲속 쉼터",
+    "seconds": 20,
+    "bytes": 882044,
+    "peak_dbfs": -9.2,
+    "rms_dbfs": -23.74,
+    "loop_seam_step": 0.007578
+  },
+  {
+    "file": "ocean.wav",
+    "name": "노을 바닷가",
+    "seconds": 20,
+    "bytes": 882044,
+    "peak_dbfs": -7.17,
+    "rms_dbfs": -23.74,
+    "loop_seam_step": 0.044408
+  },
+  {
+    "file": "cafe.wav",
+    "name": "비 오는 카페",
+    "seconds": 20,
+    "bytes": 882044,
+    "peak_dbfs": -10.54,
+    "rms_dbfs": -23.74,
+    "loop_seam_step": 0.000111
+  },
+  {
+    "file": "temple.wav",
+    "name": "고요한 산사",
+    "seconds": 20,
+    "bytes": 882044,
+    "peak_dbfs": -8.65,
+    "rms_dbfs": -23.74,
+    "loop_seam_step": 0.002687
+  },
+  {
+    "file": "garden.wav",
+    "name": "비밀정원",
+    "seconds": 20,
+    "bytes": 882044,
+    "peak_dbfs": -9.01,
+    "rms_dbfs": -23.74,
+    "loop_seam_step": 0.03064
+  },
+  {
+    "file": "cathedral.wav",
+    "name": "성당",
+    "seconds": 20,
+    "bytes": 882044,
+    "peak_dbfs": -7.16,
+    "rms_dbfs": -23.74,
+    "loop_seam_step": 0.005733
+  }
+]

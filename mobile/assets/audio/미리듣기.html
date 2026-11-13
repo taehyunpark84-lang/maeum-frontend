@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>마음이 머무는 곳 · 배경음 미리듣기</title>
+<style>
+body{margin:0;background:#f6f3eb;color:#28382d;font:17px/1.7 system-ui,sans-serif}main{max-width:900px;margin:60px auto;padding:24px}h1{font-size:32px;margin-bottom:8px}p{color:#627060}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}article{background:#fffdf7;border:1px solid #deded1;padding:24px;border-radius:22px}h2{font-size:22px;margin:0}audio{width:100%;margin-top:16px}a{color:#526e46}small{display:block;color:#627060}button{background:#526e46;color:white;border:0;padding:12px 22px;border-radius:24px;font:inherit;cursor:pointer;margin:12px 0 24px}
+</style><main><h1>공간마다 다른, 편안한 소리</h1>
+<p>6개 공간의 합성 배경음 초안입니다. ▶ 버튼으로 들어보세요.<br>각 20초 · 자동 반복 · WAV · 총 5.29MB</p>
+<button id="stop">모두 정지</button><div class="grid">
+<article><h2>숲속 쉼터</h2><p>나뭇잎 사이 바람과 작은 새의 지저귐</p><audio controls loop preload="none" src="forest.wav"></audio><a href="forest.wav" download>음원 저장</a></article>
+<article><h2>노을 바닷가</h2><p>천천히 밀려왔다 돌아가는 파도와 바람</p><audio controls loop preload="none" src="ocean.wav"></audio><a href="ocean.wav" download>음원 저장</a></article>
+<article><h2>비 오는 카페</h2><p>창밖의 고른 빗소리와 작은 빗방울</p><audio controls loop preload="none" src="cafe.wav"></audio><a href="cafe.wav" download>음원 저장</a></article>
+<article><h2>고요한 산사</h2><p>낮은 산바람 위로 가끔 울리는 풍경</p><audio controls loop preload="none" src="temple.wav"></audio><a href="temple.wav" download>음원 저장</a></article>
+<article><h2>비밀정원</h2><p>가벼운 잎사귀, 먼 새소리와 은은한 울림</p><audio controls loop preload="none" src="garden.wav"></audio><a href="garden.wav" download>음원 저장</a></article>
+<article><h2>성당</h2><p>조용한 공간에 낮게 퍼지는 종의 여운</p><audio controls loop preload="none" src="cathedral.wav"></audio><a href="cathedral.wav" download>음원 저장</a></article>
+</div><p>자연 현장 녹음이 아닌 코드 합성 음원입니다. 앱 재생 기능에는 아직 연결하지 않았습니다.</p>
+<small id="status" role="status">한 음원을 재생하면 다른 음원은 자동으로 멈춥니다.</small></main>
+<script>
+const players=[...document.querySelectorAll('audio')];
+players.forEach(p=>{p.volume=.5;p.addEventListener('play',()=>{players.forEach(q=>{if(q!==p)q.pause()});document.querySelector('#status').textContent=p.closest('article').querySelector('h2').textContent+' · 반복 재생 중';});p.addEventListener('error',()=>{document.querySelector('#status').textContent='음원을 찾을 수 없습니다. HTML 파일과 WAV 파일을 같은 폴더에 두세요.';});});
+document.querySelector('#stop').onclick=()=>{players.forEach(p=>{p.pause();p.currentTime=0});document.querySelector('#status').textContent='모든 음원을 정지했습니다.'};
+</script></html>

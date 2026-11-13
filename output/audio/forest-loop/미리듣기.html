@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>숲속 쉼터 · 반복 음원 확인</title>
+<style>body{background:#f5f2e9;color:#273a2c;font:17px/1.7 system-ui,sans-serif;margin:0}main{max-width:800px;margin:40px auto;padding:24px}h1{font-size:30px;line-height:1.4}h2{font-size:22px;margin:0 0 8px}section{background:#fffdf7;border:1px solid #dedfd4;border-radius:24px;padding:24px;margin:20px 0}p{color:#5b695c}audio{width:100%;margin:8px 0}button,a.download{background:#526e46;color:white;border:0;border-radius:24px;padding:11px 17px;font:inherit;cursor:pointer;display:inline-block;margin:6px 5px 6px 0;text-decoration:none}.muted{font-size:14px}#status{min-height:2em;color:#526e46;font-weight:600}.markers{display:flex;justify-content:space-around;font-size:14px;color:#526e46;border-top:2px solid #ccd4c1;padding-top:5px}a{color:#526e46}</style></head>
+<body><main><h1>숲속 쉼터<br>반복해도 자연스럽게 이어지는지 들어보세요</h1>
+<p>제공해 주신 새소리 녹음으로 편집했습니다. 합성 잡음을 추가하지 않았고, 2.5초 크로스페이드로 끝과 시작을 연결했습니다.</p>
+<section><h2>① 먼저, 연결 부분만 확인</h2><p>총 8초입니다. <strong>4초 지점</strong>에서 음원의 끝 → 시작으로 넘어갑니다.<br>툭 끊기는 소리, 갑작스러운 음량 변화, 어색한 새소리 겹침이 있는지 들어보세요.</p>
+<audio controls preload="metadata" src="forest-loop-boundary-8s.wav"></audio>
+</section>
+<section><h2>② 3회 연속 재생으로 확인</h2><p>24초짜리 WAV를 틈 없이 정확히 3번 붙인 72초 파일입니다.<br><strong>24초 · 48초</strong>에 다음 반복이 시작됩니다. 직전 2.5초는 소리가 겹쳐지는 구간입니다.</p>
+<audio id="proof" controls preload="metadata" src="forest-loop-check-3x.wav"></audio>
+<div class="markers"><span>0초 시작</span><span>24초 연결 ①</span><span>48초 연결 ②</span><span>72초 끝</span></div>
+<button data-seek="20">첫 연결 4초 전부터</button><button data-seek="44">두 번째 연결 4초 전부터</button>
+<div id="status" role="status">▶ 버튼 또는 연결 확인 버튼을 눌러주세요.</div>
+</section>
+<section><h2>③ 앱에 사용할 24초 파일</h2><p>WAV · 32kHz · 스테레오 · 16bit · 약 3.07MB<br>아래 재생기는 반복 설정되어 있습니다. 단, 브라우저의 파일 반복 방식에 따른 틈은 위의 연속 확인 파일과 다를 수 있습니다.</p>
+<audio controls loop preload="metadata" src="forest-loop.wav"></audio>
+<a class="download" href="forest-loop.wav" download>반복용 WAV 저장</a>
+<a class="download" href="forest-loop-small.mp3" download>소용량 MP3 저장 (0.58MB)</a>
+<p class="muted">MP3는 플레이어의 인코더 지연 처리에 따라 반복 경계가 달라질 수 있습니다. 연결 확인은 WAV 기준입니다.</p>
+</section><button id="stop">모두 정지</button>
+<p class="muted">검사 완료: 파일 길이·형식, 클리핑 없음, 경계 주변에 무음 삽입 없음, 확인 파일이 원본 루프의 정확한 3회 복제임을 검사했습니다. 자연스러움은 직접 청취로 판단해주세요. 실제 앱의 재생 기능은 아직 연결하지 않았습니다.</p>
+</main><script>
+const players=[...document.querySelectorAll('audio')],proof=document.querySelector('#proof'),status=document.querySelector('#status');
+players.forEach(p=>{p.volume=.65;p.addEventListener('play',()=>players.forEach(q=>{if(q!==p)q.pause()}));p.addEventListener('error',()=>status.textContent='파일을 찾지 못했습니다. HTML과 WAV 파일을 같은 폴더에 두고 다시 열어주세요.');});
+document.querySelectorAll('[data-seek]').forEach(b=>b.addEventListener('click',async()=>{try{if(proof.readyState<1)await new Promise((resolve,reject)=>{proof.addEventListener('loadedmetadata',resolve,{once:true});proof.addEventListener('error',reject,{once:true});proof.load()});proof.currentTime=Number(b.dataset.seek);await proof.play();}catch{status.textContent='재생 버튼을 직접 눌러주세요.';}}));
+proof.addEventListener('timeupdate',()=>{const s=proof.currentTime;const part=Math.min(3,Math.floor(s/24)+1);status.textContent=s.toFixed(1)+'초 · '+part+'번째 반복'+((s>=21.5&&s<24)||(s>=45.5&&s<48)?' · 지금 연결을 위한 크로스페이드 구간입니다.':'');});
+document.querySelector('#stop').onclick=()=>{players.forEach(p=>{p.pause();p.currentTime=0});status.textContent='모든 음원을 정지했습니다.'};
+</script></body></html>

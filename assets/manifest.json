@@ -1,0 +1,73 @@
+{
+  "images": [
+    {
+      "path": "assets/backgrounds/forest.png",
+      "width": 941,
+      "height": 1672,
+      "source": "exec-56b96ba9-f3b8-418e-8023-ee3a1710ed08.png",
+      "sha256": "b4fb5237931c3a7133130bc8ec84b1fed3b201c2eabf3e63b6f3c4f472136c33"
+    },
+    {
+      "path": "assets/backgrounds/ocean.png",
+      "width": 941,
+      "height": 1672,
+      "source": "exec-117386dd-c397-4532-b69d-7ae02342fe1b.png",
+      "sha256": "e36faa161ad73fca193589067db7532fa1a7c096f2936852ccbebbb6c97c348e"
+    },
+    {
+      "path": "assets/backgrounds/cafe.png",
+      "width": 941,
+      "height": 1672,
+      "source": "exec-36ff9ecd-d5df-416a-b915-657c5e0a6ca2.png",
+      "sha256": "b2050a70b4f26befb62ba20400b927ebc0ed5cc9b18225ddfe4f8e9eca873559"
+    },
+    {
+      "path": "assets/backgrounds/temple.png",
+      "width": 940,
+      "height": 1673,
+      "source": "exec-5cbc7696-304c-48c4-8a92-7720288482be.png",
+      "sha256": "2e206ffdfa456862851d680cfcfa6929550a0386e5e7de975ac87ef95065b823"
+    },
+    {
+      "path": "assets/avatars/tori.png",
+      "width": 1254,
+      "height": 1254,
+      "source": "exec-0fc0ada5-c693-47f3-9f4a-8cec1a67531e.png",
+      "sha256": "2ba214bf85d0d24acb4a1933ebd8ef764e5c366f757bf409c4ab3fc83fb56a38"
+    },
+    {
+      "path": "assets/avatars/naru.png",
+      "width": 1254,
+      "height": 1254,
+      "source": "exec-6b606ef9-f634-4ea1-9907-a31bfc2075c1.png",
+      "sha256": "4e2a79fb15d1d49d6d4637f4bb679209582320c690c6ab28884848baa3d6e2ce"
+    },
+    {
+      "path": "assets/avatars/jiu.png",
+      "width": 1254,
+      "height": 1254,
+      "source": "exec-98b608ce-554e-483c-b3d3-6c1728e54e55.png",
+      "sha256": "ede49c97e0a261a8f8e0430080f7ad643d7f23708dd7192b0a1026166bd6d99f"
+    },
+    {
+      "path": "assets/avatars/dodam.png",
+      "width": 1254,
+      "height": 1254,
+      "source": "exec-e770dbf9-abf8-4a1c-afe5-02dc0aef3cc0.png",
+      "sha256": "967ccdf7089aaf7f7924315d81537b4116fa15a7b554f0b6d596cff5fb9fe140"
+    },
+    {
+      "path": "assets/diary/demo-art.png",
+      "width": 1254,
+      "height": 1254,
+      "source": "exec-58d5bdbc-31c4-48f0-99b1-0f36ab2d41dd.png",
+      "sha256": "8c7144070fe6057da21389415bbb34cc6adc1acaca67fa33e83b028242083256"
+    }
+  ],
+  "audio": {
+    "forest": null,
+    "ocean": null,
+    "cafe": null,
+    "temple": null
+  }
+}

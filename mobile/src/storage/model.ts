@@ -9,6 +9,9 @@ export function initialState(): AppState {
       audioEnabled: false,
       audioMuted: false,
       audioLoop: true,
+      glowEnabled: true,
+      glowIntensity: 0.85,
+      glowSpeed: 2.5,
     },
     sessions: [],
     diaries: [],
@@ -105,6 +108,17 @@ export function restore(raw: string | null): {
     // Version 1 records predating real playback have neither field.
     state.settings.audioMuted = x.settings.audioMuted === true;
     state.settings.audioLoop = x.settings.audioLoop !== false;
+    state.settings.glowEnabled = x.settings.glowEnabled !== false;
+    state.settings.glowIntensity =
+      typeof x.settings.glowIntensity === "number" &&
+      Number.isFinite(x.settings.glowIntensity)
+        ? Math.max(0.2, Math.min(1, x.settings.glowIntensity))
+        : 0.85;
+    state.settings.glowSpeed =
+      typeof x.settings.glowSpeed === "number" &&
+      Number.isFinite(x.settings.glowSpeed)
+        ? Math.max(0.5, Math.min(3, x.settings.glowSpeed))
+        : 2.5;
     state.sessions.forEach((s) =>
       s.messages.forEach((m) => {
         if (m.status === "pending") m.status = "failed";

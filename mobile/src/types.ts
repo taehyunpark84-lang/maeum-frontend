@@ -44,6 +44,9 @@ export type Settings = {
   audioEnabled: false;
   audioMuted: boolean;
   audioLoop: boolean;
+  glowEnabled: boolean;
+  glowIntensity: number;
+  glowSpeed: number;
 };
 export type AppState = {
   version: 1;

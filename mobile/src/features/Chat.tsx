@@ -6,6 +6,8 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  Switch,
   ScrollView,
   StyleSheet,
   type ScrollViewInstance,
@@ -13,12 +15,15 @@ import {
   TextInput,
   View,
 } from "react-native";
+import Slider from "@react-native-community/slider";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { places, audioSources } from "../config/assets";
 import { Button, Copy, IconButton, Sheet, styles } from "../components/ui";
 import { Sound } from "../components/Sound";
+import { AmbientGlow, type GlowStatus } from "../components/AmbientGlow";
 import { useStore } from "../storage/store";
 import { ChatService, id, now } from "../services/mock";
 import type { Message, Session } from "../types";
@@ -32,12 +37,24 @@ export default function Chat({
   onBack: () => void;
   onDiary: () => void;
 }) {
-  const { update } = useStore();
+  const { state, update } = useStore();
   const p = places[session.placeId];
   const [text, setText] = useState("");
   const [scenery, setScenery] = useState(false);
   const [keyboard, setKeyboard] = useState(false);
   const [soundOpen, setSoundOpen] = useState(false);
+  const [glowOpen, setGlowOpen] = useState(false);
+  const { glowEnabled, glowIntensity, glowSpeed } = state.settings;
+  const setLight = (
+    patch: Partial<
+      Pick<typeof state.settings, "glowEnabled" | "glowIntensity" | "glowSpeed">
+    >,
+  ) =>
+    update((current) => ({
+      ...current,
+      settings: { ...current.settings, ...patch },
+    }));
+  const [glowStatus, setGlowStatus] = useState<GlowStatus>("loading");
   const scroll = useRef<ScrollViewInstance>(null);
   const atBottom = useRef(true);
   const sending = useRef(false);
@@ -116,6 +133,14 @@ export default function Chat({
   }
   return (
     <ImageBackground source={p.background} style={styles.screen}>
+      <AmbientGlow
+        key={session.placeId}
+        placeId={session.placeId}
+        enabled={glowEnabled}
+        intensity={glowIntensity}
+        speed={glowSpeed}
+        onStatus={setGlowStatus}
+      />
       <StatusBar style="light" />
       <LinearGradient
         pointerEvents="none"
@@ -140,6 +165,30 @@ export default function Chat({
               onPress={onBack}
             />
             <Text style={chatStyles.placeName}>{p.name}</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="소리 설정 열기"
+              onPress={() => {
+                Keyboard.dismiss();
+                setSoundOpen(true);
+              }}
+              style={chatStyles.quickButton}
+            >
+              <Ionicons name="volume-medium-outline" size={17} color="#fff" />
+              <Text style={chatStyles.quickLabel}>소리</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="빛 강도와 속도 설정 열기"
+              onPress={() => {
+                Keyboard.dismiss();
+                setGlowOpen(true);
+              }}
+              style={chatStyles.quickButton}
+            >
+              <Ionicons name="sunny-outline" size={17} color="#fff" />
+              <Text style={chatStyles.quickLabel}>빛</Text>
+            </Pressable>
             <IconButton
               name="map-outline"
               label="장소 변경: 현재 대화 보관"
@@ -249,12 +298,6 @@ export default function Chat({
               <View style={chatStyles.footer}>
                 {!keyboard && (
                   <View style={chatStyles.actions}>
-                    <Button
-                      label="소리 설정"
-                      icon="volume-medium-outline"
-                      color="#23382BBF"
-                      onPress={() => setSoundOpen(true)}
-                    />
                     <IconButton
                       name="image-outline"
                       label="배경만 보기"
@@ -293,6 +336,73 @@ export default function Chat({
               </View>
             </>
           )}
+          {glowOpen && (
+            <Sheet title="빛 설정" onClose={() => setGlowOpen(false)}>
+              <View style={styles.row}>
+                <View style={{ flex: 1 }}>
+                  <Copy>배경 빛 효과</Copy>
+                </View>
+                <Switch
+                  accessibilityLabel="배경 빛 효과 켜기"
+                  value={glowEnabled}
+                  onValueChange={(value) => setLight({ glowEnabled: value })}
+                />
+              </View>
+              <Copy muted>
+                {!glowEnabled
+                  ? "빛 효과가 꺼져 있어요."
+                  : glowStatus === "reduced-motion"
+                    ? "휴대폰의 동작 줄이기가 켜져 있어 효과가 멈춰 있어요."
+                    : glowStatus === "unavailable"
+                      ? "휴대폰의 동작 설정을 확인하지 못했어요."
+                      : glowStatus === "loading"
+                        ? "빛 효과를 준비하고 있어요."
+                        : "배경에 빛이 피어났다 사라져요."}
+              </Copy>
+              <Copy>빛 강도 · {Math.round(glowIntensity * 100)}%</Copy>
+              <Slider
+                accessibilityLabel="빛 강도"
+                minimumValue={0.2}
+                maximumValue={1}
+                step={0.05}
+                value={glowIntensity}
+                minimumTrackTintColor={p.color}
+                thumbTintColor={p.color}
+                onValueChange={(value) => setLight({ glowIntensity: value })}
+              />
+              <Copy muted>은은하게 ← → 선명하게</Copy>
+              <Copy>변화 속도 · {glowSpeed.toFixed(1)}배</Copy>
+              <Slider
+                accessibilityLabel="빛 변화 속도"
+                minimumValue={0.5}
+                maximumValue={3}
+                step={0.1}
+                value={glowSpeed}
+                minimumTrackTintColor={p.color}
+                thumbTintColor={p.color}
+                onValueChange={(value) => setLight({ glowSpeed: value })}
+              />
+              <Copy muted>
+                천천히 ← → 빠르게 · 모든 공간에 적용되고 저장돼요.
+              </Copy>
+              <Button
+                label="기본값으로"
+                secondary
+                onPress={() =>
+                  setLight({
+                    glowEnabled: true,
+                    glowIntensity: 0.85,
+                    glowSpeed: 2.5,
+                  })
+                }
+              />
+              <Button
+                label="완료"
+                color={p.color}
+                onPress={() => setGlowOpen(false)}
+              />
+            </Sheet>
+          )}
           {soundOpen && (
             <Sheet title="소리 설정" onClose={() => setSoundOpen(false)}>
               <Copy>{p.name}의 배경 소리</Copy>
@@ -323,11 +433,29 @@ const chatStyles = StyleSheet.create({
   toolbar: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 16,
+    gap: 5,
+    paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  placeName: { flex: 1, fontSize: 21, fontWeight: "700", color: "#fff" },
+  placeName: {
+    flex: 1,
+    flexShrink: 1,
+    fontSize: 19,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  quickButton: {
+    minHeight: 44,
+    minWidth: 44,
+    paddingHorizontal: 8,
+    borderRadius: 22,
+    backgroundColor: "#233025B3",
+    flexDirection: "row",
+    gap: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quickLabel: { color: "#fff", fontSize: 13, fontWeight: "600" },
   profile: {
     flexDirection: "row",
     alignItems: "center",
@@ -366,7 +494,7 @@ const chatStyles = StyleSheet.create({
   footer: { paddingHorizontal: 16, paddingBottom: 8, gap: 10 },
   actions: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     alignItems: "center",
   },
   input: {

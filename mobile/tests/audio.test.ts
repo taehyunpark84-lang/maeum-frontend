@@ -162,3 +162,28 @@ test("existing saved data receives playback defaults; preferences survive restar
   assert.equal(next.state.settings.volume, 0.65);
   assert.equal(next.state.settings.audioEnabled, false);
 });
+
+test("light settings migrate older saves, persist, and clamp invalid ranges", () => {
+  const old = JSON.parse(JSON.stringify(initialState()));
+  delete old.settings.glowEnabled;
+  delete old.settings.glowIntensity;
+  delete old.settings.glowSpeed;
+  const migrated = restore(JSON.stringify(old));
+  assert.equal(migrated.recovered, false);
+  assert.equal(migrated.state.settings.glowEnabled, true);
+  assert.equal(migrated.state.settings.glowIntensity, 0.85);
+  assert.equal(migrated.state.settings.glowSpeed, 2.5);
+  Object.assign(migrated.state.settings, {
+    glowEnabled: false,
+    glowIntensity: 0.4,
+    glowSpeed: 1.2,
+  });
+  const restored = restore(JSON.stringify(migrated.state)).state.settings;
+  assert.equal(restored.glowEnabled, false);
+  assert.equal(restored.glowIntensity, 0.4);
+  assert.equal(restored.glowSpeed, 1.2);
+  Object.assign(old.settings, { glowIntensity: 12, glowSpeed: -3 });
+  const clamped = restore(JSON.stringify(old)).state.settings;
+  assert.equal(clamped.glowIntensity, 1);
+  assert.equal(clamped.glowSpeed, 0.5);
+});

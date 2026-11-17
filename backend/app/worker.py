@@ -8,10 +8,10 @@ import asyncio
 from .ai_errors import public_ai_error
 import time
 from sqlalchemy import select, update, delete, or_, and_
-from .db import Db, Job, ActiveJob, Diary, uid
+from .db import Db, Job, ActiveJob, Diary, Conversation, uid
 from .config import DATA
 from .tuning import JOB_LEASE_SECONDS, MAX_JOB_ATTEMPTS
-from .ai import plan_art, draw, ArtPlan
+from .ai import plan_art, draw, describe_art, ArtPlan
 
 def claim_job():
     now = time.time()
@@ -62,6 +62,10 @@ async def process(job_id, owner):
             temporary = image_dir/f'{job_id}.{owner}.tmp'
             temporary.write_bytes(content)
             temporary.replace(target)
+        patch_job(job_id, owner, stage='explaining')
+        with Db() as db:
+            place = db.get(Conversation, job.session_id).place_id
+        explanation = await describe_art(job.user_id, place, plan, target.read_bytes())
         patch_job(job_id, owner, stage='saving')
         with Db() as db:
             # 완료 표시, 일기 생성, 사용자 잠금 해제를 한 트랜잭션으로 묶습니다.
@@ -70,7 +74,7 @@ async def process(job_id, owner):
             if result.rowcount:
                 if not db.scalar(select(Diary).where(Diary.job_id==job_id)):
                     db.add(Diary(user_id=job.user_id, job_id=job_id, title=plan.title, poem=plan.poem,
-                        interpretation=plan.interpretation, image_file=target.name))
+                        interpretation=explanation, image_file=target.name))
                 db.execute(delete(ActiveJob).where(ActiveJob.job_id==job_id))
                 db.commit()
     except Exception as exc:

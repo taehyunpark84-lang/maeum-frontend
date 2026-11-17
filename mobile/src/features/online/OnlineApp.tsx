@@ -258,6 +258,9 @@ export default function OnlineApp() {
           onBack={() => setChat(null)}
           onDiary={() => void prepareDiary()}
           generationBusy={generationBusy}
+          activeJob={activeJob}
+          reviewing={reviewing}
+          poemFont={fontsLoaded ? "PoemFont" : undefined}
           mock={account.ai_mode === "mock"}
         />
       ) : (
@@ -517,14 +520,11 @@ export default function OnlineApp() {
           <Button label="닫기" secondary onPress={() => setError("")} />
         </View>
       ) : null}
-      {reviewing && (
+      {reviewing && !chat && (
         <View style={{ padding: 12, backgroundColor: "#FFFCF7" }}>
           <ActivityIndicator />
           <Copy>그림일기를 위한 대화 요약을 준비하고 있어요…</Copy>
         </View>
-      )}
-      {chat && activeJob && (
-        <JobStatus compact job={activeJob} retryDisabled onRetry={() => {}} />
       )}
       {preview && (
         <Sheet

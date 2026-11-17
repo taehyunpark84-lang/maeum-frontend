@@ -7,6 +7,7 @@ const labels: Record<string, string> = {
   queued: "작업 순서를 기다려요",
   writing: "시와 작품의 이야기를 구상해요",
   drawing: "마음을 그림으로 표현하고 있어요",
+  explaining: "그림과 시를 소개할 이야기를 준비해요",
   saving: "작품을 보관하고 있어요",
   completed: "작품을 완성했어요",
   failed: "생성을 마치지 못했어요",

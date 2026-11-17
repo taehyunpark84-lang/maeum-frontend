@@ -111,6 +111,45 @@ def test_prompts_preserve_pdf_examples():
         assert '예시 A' in prompt and '예시 B' in prompt
         assert '질문은 필요한 경우에만' in prompt
 
+
+def test_artwork_delivery_waits_for_turn_and_is_private_and_idempotent():
+    a, b = account('delivery_user'), account('delivery_other')
+    sid = session(a)
+    body = {'session_id':sid, 'request_id':'deliver-art-001', 'approved_summary':'잠시 쉬고 싶은 하루'}
+    client.post('/jobs', headers=a, json=body)
+    asyncio.run(process(*claim_job()))
+    with Db() as db:
+        db.add(ChatLock(session_id=sid, owner='streaming', expires=time.time()+100))
+        db.add(Message(session_id=sid, request_id='deliver-chat-001', role='user', text='아직 대화 중'))
+        db.commit()
+    endpoint = f'/sessions/{sid}/artworks/deliver'
+    assert client.post(endpoint, headers=b).status_code==404
+    assert client.post(endpoint, headers=a).json()['waiting']
+    from sqlalchemy import delete
+    with Db() as db:
+        db.execute(delete(ChatLock).where(ChatLock.session_id==sid))
+        db.commit()
+    # 연결이 끊긴 사용자 턴도 재시도 후 응답이 완성될 때까지 대기합니다.
+    assert client.post(endpoint, headers=a).json()['waiting']
+    with Db() as db:
+        db.add(Message(session_id=sid, request_id='deliver-chat-001', role='assistant', text='답변 완료'))
+        db.commit()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        list(pool.map(lambda _: client.post(endpoint, headers=a), range(2)))
+    client.post(endpoint, headers=a)
+    rows = client.get(f'/sessions/{sid}/messages', headers=a).json()
+    assert len(rows)==3
+    assert rows[-1]['artwork']['poem']
+    assert rows[-1]['artwork']['interpretation'] in rows[-1]['text']
+    assert rows[-2]['text']=='답변 완료'
+
+
+def test_art_style_avoids_recent_families():
+    from app.art_direction import STYLES, choose_style
+    recent = list(STYLES[:5])
+    for _ in range(20):
+        assert choose_style(recent) not in recent
+
 def test_rate_limit_and_password_storage():
     import pytest
     from fastapi import HTTPException

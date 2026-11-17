@@ -112,7 +112,43 @@ def sessions(user: UserId):
 def messages(session_id: str, user: UserId):
     with Db() as db:
         owned(db,Conversation,session_id,user)
-        return [message_json(r) for r in db.scalars(select(Message).where(Message.session_id==session_id).order_by(Message.id))]
+        artworks = {r.job_id: {key:getattr(r,key) for key in ('id','job_id','title','poem','interpretation','created')}
+            for r in db.scalars(select(Diary).join(Job, Diary.job_id==Job.id).where(Job.session_id==session_id, Diary.user_id==user))}
+        return [{**message_json(r), 'artwork':artworks.get(r.request_id) if r.role=='assistant' else None}
+            for r in db.scalars(select(Message).where(Message.session_id==session_id).order_by(Message.id))]
+
+
+@app.post('/sessions/{session_id}/artworks/deliver')
+def deliver_artworks(session_id: str, user: UserId):
+    """채팅과 같은 잠금으로 작품을 한 번만 전달합니다. 진행 중인 턴을 끊지 않습니다."""
+    owner = uid()
+    with Db() as db:
+        owned(db, Conversation, session_id, user)
+        db.execute(delete(ChatLock).where(ChatLock.expires < time.time()))
+        db.add(ChatLock(session_id=session_id, owner=owner, expires=time.time()+30))
+        try:
+            db.commit()
+        except IntegrityError:
+            return {'waiting':True}
+        try:
+            # 실패 후 재시도할 사용자 발화도 턴이 끝나기 전으로 취급합니다.
+            latest = db.scalar(select(Message).where(Message.session_id==session_id).order_by(Message.id.desc()).limit(1))
+            if latest and latest.role=='user':
+                return {'waiting':True}
+            works = db.scalars(select(Diary).join(Job, Diary.job_id==Job.id).where(
+                Job.session_id==session_id, Diary.user_id==user).order_by(Diary.created)).all()
+            for work in works:
+                existing = db.scalar(select(Message.id).where(Message.session_id==session_id,
+                    Message.request_id==work.job_id, Message.role=='assistant'))
+                if existing is None:
+                    # 요청 ID를 작품 작업 ID로 고정해 재접속/중복 폴링에도 중복 표시하지 않습니다.
+                    db.add(Message(session_id=session_id, request_id=work.job_id, role='assistant',
+                        text=f'함께 나눈 이야기로 만든 작품 「{work.title}」\n{work.poem}\n\n{work.interpretation}'))
+            db.commit()
+            return {'waiting':False}
+        finally:
+            db.execute(delete(ChatLock).where(ChatLock.session_id==session_id, ChatLock.owner==owner))
+            db.commit()
 
 @app.post('/sessions/{session_id}/chat')
 async def chat(session_id: str, body: ChatInput, user: UserId):

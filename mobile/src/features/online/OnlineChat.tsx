@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   BackHandler,
   Alert,
+  ActivityIndicator,
   Image,
   ImageBackground,
   KeyboardAvoidingView,
@@ -26,7 +27,45 @@ import {
   streamChat,
   type OnlineMessage,
   type OnlineSession,
+  type GenerationJob,
 } from "../../services/api";
+import ChatArtwork from "./ChatArtwork";
+
+// 메시지 행은 투명하게 유지하고 작은 말풍선에만 기존 반투명 색을 적용합니다.
+function AssistantBubble({
+  avatar,
+  children,
+}: React.PropsWithChildren<{
+  avatar: React.ComponentProps<typeof Image>["source"];
+}>) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignSelf: "flex-start",
+        maxWidth: "92%",
+        gap: 7,
+      }}
+    >
+      <Image
+        source={avatar}
+        accessibilityLabel="대화 상대 프로필"
+        style={{ width: 28, height: 28, borderRadius: 14, marginTop: 4 }}
+      />
+      <View
+        style={{
+          flexShrink: 1,
+          backgroundColor: "#FFFCF0D9",
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+          borderRadius: 22,
+        }}
+      >
+        {children}
+      </View>
+    </View>
+  );
+}
 
 export default function OnlineChat({
   session,
@@ -34,12 +73,18 @@ export default function OnlineChat({
   onDiary,
   generationBusy,
   mock,
+  activeJob,
+  reviewing,
+  poemFont,
 }: {
   session: OnlineSession;
   onBack: () => void;
   onDiary: () => void;
   generationBusy: boolean;
   mock: boolean;
+  activeJob?: GenerationJob;
+  reviewing: boolean;
+  poemFont?: string;
 }) {
   const [messages, setMessages] = useState<OnlineMessage[]>([]);
   const [input, setInput] = useState("");
@@ -53,6 +98,7 @@ export default function OnlineChat({
   const [status, setStatus] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [scenery, setScenery] = useState(false);
+  const [delivering, setDelivering] = useState(false);
   const locked = useRef(false);
   const mounted = useRef(true);
   const scroll = useRef<ScrollViewInstance>(null);
@@ -84,6 +130,35 @@ export default function OnlineChat({
     });
     return () => sub.remove();
   }, [onBack, scenery]);
+  useEffect(() => {
+    let alive = true;
+    async function deliver() {
+      // 스트리밍 중이거나 실패한 턴을 재시도하기 전에는 작품을 끼워 넣지 않습니다.
+      if (locked.current || loading || sending || failed) return;
+      locked.current = true;
+      setDelivering(true);
+      try {
+        const result = await api<{ waiting: boolean }>(
+          `/sessions/${session.id}/artworks/deliver`,
+          "POST",
+        );
+        if (!result.waiting && alive) await reload();
+      } catch {
+        // 일시적인 접속 실패는 다음 폴링에서 재시도합니다. 기존 대화는 그대로 유지합니다.
+      } finally {
+        locked.current = false;
+        if (mounted.current) setDelivering(false);
+      }
+    }
+    void deliver();
+    const interval = setInterval(() => void deliver(), 4000);
+    return () => {
+      alive = false;
+      clearInterval(interval);
+    };
+    // reload는 세션별 마운트에서 고정된 주소를 사용합니다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.id, loading, sending, failed]);
   async function send() {
     if (locked.current || loading) return;
     const pending = failed || { text: input.trim(), id: requestId() };
@@ -171,18 +246,36 @@ export default function OnlineChat({
                 {place.character} · AI
               </Text>
             </View>
-            <IconButton
-              name={generationBusy ? "hourglass-outline" : "image-outline"}
-              label={generationBusy ? "그림일기 생성 중" : "그림일기 만들기"}
-              light
-              disabled={
-                generationBusy ||
-                sending ||
-                loading ||
-                !messages.some((m) => m.role === "user")
-              }
-              onPress={onDiary}
-            />
+            {generationBusy ? (
+              <View
+                accessibilityRole="progressbar"
+                accessibilityLabel="그림일기 생성 중"
+                accessibilityState={{ disabled: true, busy: true }}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: "#23302599",
+                }}
+              >
+                <ActivityIndicator color="#F5DEA5" size="small" />
+              </View>
+            ) : (
+              <IconButton
+                name={generationBusy ? "hourglass-outline" : "image-outline"}
+                label={generationBusy ? "그림일기 생성 중" : "그림일기 만들기"}
+                light
+                disabled={
+                  generationBusy ||
+                  sending ||
+                  loading ||
+                  !messages.some((m) => m.role === "user")
+                }
+                onPress={onDiary}
+              />
+            )}
             <IconButton
               name="options-outline"
               label="소리와 빛 설정"
@@ -224,47 +317,67 @@ export default function OnlineChat({
                 }}
               >
                 {!messages.length && !loading && (
-                  <View
-                    style={{
-                      alignSelf: "flex-start",
-                      maxWidth: "90%",
-                      backgroundColor: "#FFFCF0D9",
-                      borderRadius: 22,
-                      padding: 12,
-                    }}
-                  >
+                  <AssistantBubble avatar={place.avatar}>
                     <Copy>{place.greeting}</Copy>
-                  </View>
+                  </AssistantBubble>
                 )}
-                {messages.map((message) => (
-                  <View
-                    key={message.id}
-                    style={{
-                      alignSelf:
-                        message.role === "user" ? "flex-end" : "flex-start",
-                      maxWidth: "90%",
-                      backgroundColor:
-                        message.role === "user" ? "#E7EEDBD9" : "#FFFCF0D9",
-                      paddingHorizontal: 14,
-                      paddingVertical: 10,
-                      borderRadius: 22,
-                    }}
-                  >
-                    <Copy>{message.text}</Copy>
-                  </View>
-                ))}
+                {messages.map((message) =>
+                  message.role === "assistant" ? (
+                    <View key={message.id} style={{ gap: 10 }}>
+                      {message.artwork && (
+                        <AssistantBubble avatar={place.avatar}>
+                          <ChatArtwork
+                            artwork={message.artwork}
+                            poemFont={poemFont}
+                          />
+                        </AssistantBubble>
+                      )}
+                      <AssistantBubble avatar={place.avatar}>
+                        <Copy>
+                          {message.artwork
+                            ? message.artwork.interpretation
+                            : message.text}
+                        </Copy>
+                      </AssistantBubble>
+                    </View>
+                  ) : (
+                    <View
+                      key={message.id}
+                      style={{
+                        alignSelf:
+                          message.role === "user" ? "flex-end" : "flex-start",
+                        maxWidth: "90%",
+                        backgroundColor:
+                          message.role === "user" ? "#E7EEDBD9" : "#FFFCF0D9",
+                        paddingHorizontal: 14,
+                        paddingVertical: 10,
+                        borderRadius: 22,
+                      }}
+                    >
+                      <Copy>{message.text}</Copy>
+                    </View>
+                  ),
+                )}
                 {(draft || status || loading) && (
-                  <View
-                    style={{
-                      alignSelf: "flex-start",
-                      maxWidth: "90%",
-                      backgroundColor: "#FFFCF0D9",
-                      borderRadius: 22,
-                      padding: 12,
-                    }}
-                  >
+                  <AssistantBubble avatar={place.avatar}>
                     <Copy>{draft || status || "기록을 불러오고 있어요…"}</Copy>
-                  </View>
+                  </AssistantBubble>
+                )}
+                {(activeJob || reviewing) && (
+                  <AssistantBubble avatar={place.avatar}>
+                    <Text
+                      accessibilityLiveRegion="polite"
+                      style={{ color: "#423C33", fontSize: 13, lineHeight: 20 }}
+                    >
+                      {reviewing
+                        ? "그림일기를 위한 대화를 정리하고 있어요…"
+                        : activeJob?.session_id !== session.id
+                          ? "다른 대화방의 그림일기를 만들고 있어요. 여기서 계속 이야기해도 좋아요."
+                          : activeJob.stage === "explaining"
+                            ? "그림과 시가 완성되어 소개할 이야기를 준비하고 있어요."
+                            : "그림과 시를 만들고 있어요. 기다리는 동안 계속 이야기해도 좋아요."}
+                    </Text>
+                  </AssistantBubble>
                 )}
               </ScrollView>
               <View
@@ -315,7 +428,12 @@ export default function OnlineChat({
                   <IconButton
                     name={failed ? "refresh" : "send"}
                     label={failed ? "같은 메시지 재시도" : "메시지 전송"}
-                    disabled={sending || loading || (!failed && !input.trim())}
+                    disabled={
+                      sending ||
+                      delivering ||
+                      loading ||
+                      (!failed && !input.trim())
+                    }
                     light
                     onPress={() => void send()}
                   />

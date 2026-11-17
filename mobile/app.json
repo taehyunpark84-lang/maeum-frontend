@@ -35,6 +35,17 @@
           "enableBackgroundPlayback": false,
           "enableBackgroundRecording": false
         }
+      ],
+      "expo-secure-store",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "생성된 그림을 전용 앨범에 저장하기 위해 사진첩에 접근합니다.",
+          "savePhotosPermission": "생성된 그림을 사진첩에 저장합니다.",
+          "granularPermissions": [
+            "photo"
+          ]
+        }
       ]
     ],
     "experiments": {

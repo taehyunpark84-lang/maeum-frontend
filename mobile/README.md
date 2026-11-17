@@ -1,6 +1,21 @@
 # 마음이 머무는 곳 — 모바일 MVP
 
-React Native + Expo + TypeScript로 만든 로컬 mock 앱입니다. WebView를 사용하지 않습니다. 실제 AI/API 키/로그인/서버 없이 핵심 흐름을 실행합니다.
+React Native + Expo + TypeScript 앱입니다. 기본 모드는 FastAPI 서버를 사용하는 회원가입·채팅·그림일기 앱이며 기존 로컬 시연 모드도 남아 있습니다. WebView를 사용하지 않습니다.
+
+## 서버 연결 모드 (2026-11-17 추가)
+
+먼저 [백엔드 실행 안내](../backend/README.md)에 따라 SQLite 마이그레이션, API와 작업자를 실행하세요.
+`mobile/.env.example`을 `mobile/.env`로 복사하고 `EXPO_PUBLIC_API_URL`을 PC의 Wi-Fi IP 주소로 변경합니다.
+휴대폰에서 `127.0.0.1`은 PC가 아닌 휴대폰 자신입니다. API는 `--host 0.0.0.0`으로 실행하세요.
+설정 변경 후 `npm.cmd start -- --clear`로 재시작합니다.
+
+- 실제 OpenAI 키는 **backend/.env**에만 저장합니다. 모바일 설정에는 서버 주소만 넣습니다.
+- 서버 `AI_MODE=mock`: 실제 계정·DB·작업 큐를 사용하고 AI 응답과 작품만 시연합니다.
+- 서버 `AI_MODE=openai`: 키 설정 후 실제 AI를 호출합니다.
+- 기존 서버 없는 시연: 모바일 `EXPO_PUBLIC_APP_MODE=mock` 설정 후 재시작합니다. 아래 기존 흐름 설명은 이 모드 기준입니다.
+- 사진첩 저장은 Android Expo Go에서 제한됩니다. Android SDK/JDK가 준비된 PC에서 `npx.cmd expo run:android`로 개발 빌드를 설치해 검증하세요. 이 명령은 네이티브 프로젝트를 생성합니다. iOS 개발 빌드는 macOS가 필요합니다.
+- 사진 권한을 허용하면 ‘마음이 머무는 곳’ 앨범에 **그림만** 저장합니다. 시는 앱에서 별도 텍스트로 표시합니다.
+- Android Expo Go에서 계정 생성·대화·요약 확인·시연 작품 생성·갤러리·시 표시를 확인했습니다. 사진첩 저장 성공과 iOS 동작은 아직 검증하지 않았습니다.
 
 ## 시작하기 (PowerShell)
 

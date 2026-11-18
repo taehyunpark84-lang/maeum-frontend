@@ -59,6 +59,20 @@ class ChatLock(Base):
     owner: Mapped[str] = mapped_column(String(36))
     expires: Mapped[float] = mapped_column(Float)
 
+class UserMemory(Base):
+    """모든 공간에서 공유하는 요약. 기존 공간별 원문과 요약은 보존합니다."""
+    __tablename__ = 'user_memories'
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), primary_key=True)
+    summary: Mapped[str] = mapped_column(Text, default='')
+    summary_through: Mapped[int] = mapped_column(Integer, default=0)
+
+class UserChatLock(Base):
+    """실제로 실행 중인 턴만 잠급니다. 미응답 메시지 자체는 잠금이 아닙니다."""
+    __tablename__ = 'user_chat_locks'
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(36))
+    expires: Mapped[float] = mapped_column(Float(53))
+
 class Job(Base):
     __tablename__ = 'jobs'
     __table_args__ = (UniqueConstraint('user_id', 'request_id'),)

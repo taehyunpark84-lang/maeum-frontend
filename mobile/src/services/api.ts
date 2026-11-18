@@ -10,6 +10,7 @@ export const API_URL = (
 export type Account = { id: string; nickname: string; ai_mode: string };
 export type OnlineSession = { id: string; place_id: PlaceId; created: number };
 export type OnlineMessage = {
+  place_id?: PlaceId;
   artwork?: Artwork | null;
   id: number;
   role: "user" | "assistant";

@@ -133,8 +133,8 @@ export default function OnlineChat({
   useEffect(() => {
     let alive = true;
     async function deliver() {
-      // 스트리밍 중이거나 실패한 턴을 재시도하기 전에는 작품을 끼워 넣지 않습니다.
-      if (locked.current || loading || sending || failed) return;
+      // 실제 스트리밍 중에만 기다립니다. 중단된 과거 턴은 작품 표시를 막지 않습니다.
+      if (locked.current || loading || sending) return;
       locked.current = true;
       setDelivering(true);
       try {
@@ -325,14 +325,14 @@ export default function OnlineChat({
                   message.role === "assistant" ? (
                     <View key={message.id} style={{ gap: 10 }}>
                       {message.artwork && (
-                        <AssistantBubble avatar={place.avatar}>
+                        <AssistantBubble avatar={places[message.place_id ?? session.place_id].avatar}>
                           <ChatArtwork
                             artwork={message.artwork}
                             poemFont={poemFont}
                           />
                         </AssistantBubble>
                       )}
-                      <AssistantBubble avatar={place.avatar}>
+                      <AssistantBubble avatar={places[message.place_id ?? session.place_id].avatar}>
                         <Copy>
                           {message.artwork
                             ? message.artwork.interpretation
@@ -371,9 +371,7 @@ export default function OnlineChat({
                     >
                       {reviewing
                         ? "그림일기를 위한 대화를 정리하고 있어요…"
-                        : activeJob?.session_id !== session.id
-                          ? "다른 대화방의 그림일기를 만들고 있어요. 여기서 계속 이야기해도 좋아요."
-                          : activeJob.stage === "explaining"
+                        : activeJob?.stage === "explaining"
                             ? "그림과 시가 완성되어 소개할 이야기를 준비하고 있어요."
                             : "그림과 시를 만들고 있어요. 기다리는 동안 계속 이야기해도 좋아요."}
                     </Text>

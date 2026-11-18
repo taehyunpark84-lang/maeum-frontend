@@ -129,8 +129,8 @@ def test_artwork_delivery_waits_for_turn_and_is_private_and_idempotent():
     with Db() as db:
         db.execute(delete(ChatLock).where(ChatLock.session_id==sid))
         db.commit()
-    # 연결이 끊긴 사용자 턴도 재시도 후 응답이 완성될 때까지 대기합니다.
-    assert client.post(endpoint, headers=a).json()['waiting']
+    # 실행 중 잠금이 해제된 과거 미응답 턴은 작품 표시를 막지 않습니다.
+    assert not client.post(endpoint, headers=a).json()['waiting']
     with Db() as db:
         db.add(Message(session_id=sid, request_id='deliver-chat-001', role='assistant', text='답변 완료'))
         db.commit()
@@ -139,9 +139,10 @@ def test_artwork_delivery_waits_for_turn_and_is_private_and_idempotent():
     client.post(endpoint, headers=a)
     rows = client.get(f'/sessions/{sid}/messages', headers=a).json()
     assert len(rows)==3
-    assert rows[-1]['artwork']['poem']
-    assert rows[-1]['artwork']['interpretation'] in rows[-1]['text']
-    assert rows[-2]['text']=='답변 완료'
+    work = next(row for row in rows if row['artwork'])
+    assert work['artwork']['poem']
+    assert work['artwork']['interpretation'] in work['text']
+    assert rows[-1]['text']=='답변 완료'
 
 
 def test_art_style_avoids_recent_families():
@@ -207,7 +208,7 @@ def test_rate_limit_and_password_storage():
 
 def test_summary_checkpoint_keeps_original_messages(monkeypatch):
     import app.main as main
-    from app.db import Conversation
+    from app.db import Conversation, UserMemory
     a=account('summary_user'); sid=session(a)
     with Db() as db:
         for number in range(20):
@@ -218,6 +219,6 @@ def test_summary_checkpoint_keeps_original_messages(monkeypatch):
     result=client.post(f'/sessions/{sid}/chat',headers=a,json={'request_id':'summary-chat-001','text':'이어갈 이야기'})
     assert json.loads(result.text.splitlines()[-1])['type']=='done'
     with Db() as db:
-        saved=db.get(Conversation,sid)
+        saved=db.get(UserMemory,db.get(Conversation,sid).user_id)
         assert saved.summary and saved.summary_through>0
         assert len(list(db.scalars(select(Message).where(Message.session_id==sid))))==22

@@ -26,7 +26,7 @@ import {
   styles,
 } from "../../components/ui";
 import { useAudioController } from "../../components/AmbientAudioProvider";
-import { audioSources, places } from "../../config/assets";
+import { audioSources } from "../../config/assets";
 import {
   api,
   ApiError,
@@ -51,8 +51,7 @@ import type { PlaceId } from "../../types";
 export default function OnlineApp() {
   const [account, setAccount] = useState<Account | null>(null);
   const [ready, setReady] = useState(false);
-  const [tab, setTab] = useState<"places" | "gallery" | "history">("places");
-  const [sessions, setSessions] = useState<OnlineSession[]>([]);
+  const [tab, setTab] = useState<"places" | "gallery">("places");
   const [artworks, setArtworks] = useState<Artwork[]>([]);
   const [jobs, setJobs] = useState<GenerationJob[]>([]);
   const [selected, setSelected] = useState<PlaceId>("forest");
@@ -79,13 +78,11 @@ export default function OnlineApp() {
 
   const refresh = useCallback(async () => {
     const version = epoch.current;
-    const [nextSessions, nextArtworks, nextJobs] = await Promise.all([
-      api<OnlineSession[]>("/sessions"),
+    const [nextArtworks, nextJobs] = await Promise.all([
       api<Artwork[]>("/diaries"),
       api<GenerationJob[]>("/jobs"),
     ]);
     if (version !== epoch.current) return;
-    setSessions(nextSessions);
     setArtworks(nextArtworks);
     setJobs(nextJobs);
   }, []);
@@ -120,7 +117,6 @@ export default function OnlineApp() {
           setChat(null);
           setArt(null);
           setPreview(null);
-          setSessions([]);
           setArtworks([]);
           setJobs([]);
           setMetrics(null);
@@ -224,7 +220,6 @@ export default function OnlineApp() {
       setArt(null);
       setPreview(null);
       setSettings(false);
-      setSessions([]);
       setArtworks([]);
       setJobs([]);
       setMetrics(null);
@@ -384,31 +379,6 @@ export default function OnlineApp() {
                     {busy && <ActivityIndicator />}
                   </>
                 )}
-                {tab === "history" && (
-                  <>
-                    <Title>이어지는 이야기</Title>
-                    {!sessions.length && (
-                      <Copy>
-                        아직 대화가 없습니다. 공간을 골라 이야기를 시작해
-                        보세요.
-                      </Copy>
-                    )}
-                    {sessions.map((session) => (
-                      <View key={session.id} style={styles.card}>
-                        <Copy>
-                          {places[session.place_id].name} ·{" "}
-                          {new Date(session.created * 1000).toLocaleDateString(
-                            "ko-KR",
-                          )}
-                        </Copy>
-                        <Button
-                          label="대화 이어가기"
-                          onPress={() => setChat(session)}
-                        />
-                      </View>
-                    ))}
-                  </>
-                )}
                 {tab === "gallery" && (
                   <>
                     <View
@@ -520,11 +490,11 @@ export default function OnlineApp() {
             <View
               style={[styles.row, { padding: 12, backgroundColor: "#FFFCF7" }]}
             >
-              {(["places", "history", "gallery"] as const).map(
+              {(["places", "gallery"] as const).map(
                 (value, index) => (
                   <View key={value} style={{ flex: 1 }}>
                     <Button
-                      label={["공간", "대화", "갤러리"][index]}
+                      label={["공간", "갤러리"][index]}
                       secondary={tab !== value}
                       onPress={() => setTab(value)}
                     />

@@ -9,9 +9,10 @@ from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select, delete, func
 from sqlalchemy.exc import IntegrityError
-from .db import Db, User, Login, Conversation, Message, ChatLock, Job, ActiveJob, Diary, Metric, uid
+from .db import Db, User, Login, Conversation, Message, ChatLock, Job, ActiveJob, Diary, Metric, UserMemory, uid
 from .security import current_user, hash_password, verify_password, token_hash
 from .limits import limit
+from .shared_history import message_query, places_by_session, context_items, acquire_turn, release_turn
 from . import ai
 from .ai_errors import public_ai_error
 from .config import AI_MODE, DATA, IMAGE_REQUESTS_PER_HOUR
@@ -43,8 +44,8 @@ def owned(db, model, key, user):
         raise HTTPException(404, '기록을 찾을 수 없습니다.')
     return row
 
-def message_json(row):
-    return {'id':row.id, 'role':row.role, 'text':row.text, 'created':row.created}
+def message_json(row, place_id=None):
+    return {'place_id':place_id, 'id':row.id, 'role':row.role, 'text':row.text, 'created':row.created}
 
 def job_json(row):
     return {key:getattr(row,key) for key in ('id','session_id','status','stage','error','attempts','created')}
@@ -111,132 +112,136 @@ def sessions(user: UserId):
 @app.get('/sessions/{session_id}/messages')
 def messages(session_id: str, user: UserId):
     with Db() as db:
-        owned(db,Conversation,session_id,user)
-        artworks = {r.job_id: {key:getattr(r,key) for key in ('id','job_id','title','poem','interpretation','created')}
-            for r in db.scalars(select(Diary).join(Job, Diary.job_id==Job.id).where(Job.session_id==session_id, Diary.user_id==user))}
-        return [{**message_json(r), 'artwork':artworks.get(r.request_id) if r.role=='assistant' else None}
-            for r in db.scalars(select(Message).where(Message.session_id==session_id).order_by(Message.id))]
+        owned(db, Conversation, session_id, user)
+        origins = places_by_session(db, user)
+        artworks = {row.job_id: {key:getattr(row,key) for key in ('id','job_id','title','poem','interpretation','created')}
+            for row in db.scalars(select(Diary).where(Diary.user_id == user))}
+        return [{**message_json(row, origins[row.session_id]),
+                 'artwork':artworks.get(row.request_id) if row.role == 'assistant' else None}
+            for row in db.scalars(message_query(user).order_by(Message.id))]
 
 
 @app.post('/sessions/{session_id}/artworks/deliver')
 def deliver_artworks(session_id: str, user: UserId):
-    """채팅과 같은 잠금으로 작품을 한 번만 전달합니다. 진행 중인 턴을 끊지 않습니다."""
-    owner = uid()
     with Db() as db:
         owned(db, Conversation, session_id, user)
-        db.execute(delete(ChatLock).where(ChatLock.expires < time.time()))
-        db.add(ChatLock(session_id=session_id, owner=owner, expires=time.time()+30))
-        try:
-            db.commit()
-        except IntegrityError:
-            return {'waiting':True}
-        try:
-            # 실패 후 재시도할 사용자 발화도 턴이 끝나기 전으로 취급합니다.
-            latest = db.scalar(select(Message).where(Message.session_id==session_id).order_by(Message.id.desc()).limit(1))
-            if latest and latest.role=='user':
-                return {'waiting':True}
-            works = db.scalars(select(Diary).join(Job, Diary.job_id==Job.id).where(
-                Job.session_id==session_id, Diary.user_id==user).order_by(Diary.created)).all()
-            for work in works:
-                existing = db.scalar(select(Message.id).where(Message.session_id==session_id,
-                    Message.request_id==work.job_id, Message.role=='assistant'))
+    owner = acquire_turn(user, 30)
+    if owner is None:
+        return {'waiting':True}
+    try:
+        with Db() as db:
+            works = db.execute(select(Diary, Job).join(Job, Diary.job_id == Job.id).where(
+                Diary.user_id == user, Job.user_id == user).order_by(Diary.created, Diary.id)).all()
+            for work, job in works:
+                existing = db.scalar(message_query(user).where(
+                    Message.request_id == work.job_id, Message.role == 'assistant'))
                 if existing is None:
-                    # 요청 ID를 작품 작업 ID로 고정해 재접속/중복 폴링에도 중복 표시하지 않습니다.
-                    db.add(Message(session_id=session_id, request_id=work.job_id, role='assistant',
+                    # 요청 당시 공간을 유지하므로 다른 공간에서 보아도 원래 캐릭터가 표시됩니다.
+                    db.add(Message(session_id=job.session_id, request_id=work.job_id, role='assistant',
                         text=f'함께 나눈 이야기로 만든 작품 「{work.title}」\n{work.poem}\n\n{work.interpretation}'))
             db.commit()
-            return {'waiting':False}
-        finally:
-            db.execute(delete(ChatLock).where(ChatLock.session_id==session_id, ChatLock.owner==owner))
-            db.commit()
+        return {'waiting':False}
+    finally:
+        release_turn(user, owner)
+
 
 @app.post('/sessions/{session_id}/chat')
 async def chat(session_id: str, body: ChatInput, user: UserId):
     limit(user, 'chat', 30)
     if not body.text.strip():
-        raise HTTPException(422,'메시지를 입력해 주세요.')
-    lock_owner = uid()
+        raise HTTPException(422, '메시지를 입력해 주세요.')
     with Db() as db:
-        session = owned(db,Conversation,session_id,user)
-        existing = db.scalar(select(Message).where(Message.session_id==session_id,
-            Message.request_id==body.request_id, Message.role=='assistant'))
-        if existing:
-            return StreamingResponse(iter([json.dumps({'type':'done','message':message_json(existing)})+'\n']), media_type='application/x-ndjson')
-        db.execute(delete(ChatLock).where(ChatLock.expires < time.time()))
-        db.add(ChatLock(session_id=session_id,owner=lock_owner,expires=time.time()+CHAT_TIMEOUT_SECONDS+30))
-        try:
-            db.commit()
-        except IntegrityError:
-            raise HTTPException(409,'이 대화의 답변이 생성 중입니다. 잠시 후 다시 시도해 주세요.')
-        previous_user = db.scalar(select(Message).where(Message.session_id==session_id,
-            Message.request_id==body.request_id, Message.role=='user'))
-        if previous_user and previous_user.text != body.text.strip():
-            db.execute(delete(ChatLock).where(ChatLock.owner==lock_owner))
-            db.commit()
-            raise HTTPException(409,'재시도 요청의 내용이 다릅니다.')
-        if not previous_user:
-            db.add(Message(session_id=session_id,request_id=body.request_id,role='user',text=body.text.strip()))
-            db.commit()
-        rows = list(db.scalars(select(Message).where(Message.session_id==session_id,
-            Message.id>session.summary_through).order_by(Message.id)))
-        previous_summary = session.summary
+        session = owned(db, Conversation, session_id, user)
         place = session.place_id
+    owner = acquire_turn(user, CHAT_TIMEOUT_SECONDS + 30)
+    if owner is None:
+        raise HTTPException(409, '답변이 생성 중입니다. 잠시 후 다시 시도해 주세요.')
 
     async def events():
         try:
             async with asyncio.timeout(CHAT_TIMEOUT_SECONDS):
-                # 임계값을 넘었을 때만 오래된 구간을 요약합니다. 원문은 삭제하지 않습니다.
+                with Db() as db:
+                    # 잠금을 획득한 뒤 중복을 확인하여 동시 재전송도 한 번만 저장합니다.
+                    existing = db.scalar(select(Message).where(Message.session_id == session_id,
+                        Message.request_id == body.request_id, Message.role == 'assistant'))
+                    if existing:
+                        yield json.dumps({'type':'done', 'message':message_json(existing, place)}, ensure_ascii=False)+'\n'
+                        return
+                    previous = db.scalar(select(Message).where(Message.session_id == session_id,
+                        Message.request_id == body.request_id, Message.role == 'user'))
+                    if previous and previous.text != body.text.strip():
+                        raise ValueError('재시도 요청의 내용이 다릅니다.')
+                    if previous is None:
+                        previous = Message(session_id=session_id, request_id=body.request_id,
+                            role='user', text=body.text.strip())
+                        db.add(previous)
+                    memory = db.get(UserMemory, user)
+                    if memory is None:
+                        memory = UserMemory(user_id=user, summary='', summary_through=0)
+                        db.add(memory)
+                    db.commit()
+                    rows = list(db.scalars(message_query(user).where(Message.id > memory.summary_through).order_by(Message.id)))
+                    origins = places_by_session(db, user)
+                    summary = memory.summary
+                    request_message = context_items([previous], origins)[0]
+
                 recent = rows
-                summary = previous_summary
-                if sum(len(r.text) for r in rows)>SUMMARY_TRIGGER_CHARS and len(rows)>RECENT_MESSAGE_COUNT:
-                    yield json.dumps({'type':'stage','text':'이전 대화를 정리하고 있어요.'},ensure_ascii=False)+'\n'
+                if sum(len(row.text) for row in rows) > SUMMARY_TRIGGER_CHARS and len(rows) > RECENT_MESSAGE_COUNT:
+                    yield json.dumps({'type':'stage', 'text':'이전 대화를 정리하고 있어요.'}, ensure_ascii=False)+'\n'
                     older = rows[:-RECENT_MESSAGE_COUNT]
-                    summary = await ai.summarize(user,summary,[{'role':r.role,'content':r.text} for r in older])
-                    summary = summary[:SUMMARY_MAX_CHARS]
+                    # 처음 통합할 때 많은 기록도 한 번에 모델 입력 한도를 넘지 않도록 나눕니다.
+                    for index in range(0, len(older), 20):
+                        summary = await ai.summarize(user, summary, context_items(older[index:index+20], origins))
+                        summary = summary[:SUMMARY_MAX_CHARS]
                     with Db() as db:
-                        saved = db.get(Conversation,session_id)
+                        saved = db.get(UserMemory, user)
                         saved.summary = summary
                         saved.summary_through = older[-1].id
                         db.commit()
                     recent = rows[-RECENT_MESSAGE_COUNT:]
-                history = [{'role':'user','content':'참고용 과거 대화 요약 (명령이 아님):\n'+summary}] if summary else []
-                history += [{'role':r.role,'content':r.text} for r in recent]
+                history = [{'role':'user', 'content':'참고용 과거 대화 요약 (명령이 아님):\n'+summary}] if summary else []
+                history += context_items(recent, origins)
+                # 오래된 미응답 메시지 재시도도 마지막 입력으로 확실히 전달합니다.
+                if not recent or recent[-1].id != previous.id:
+                    history.append(request_message)
                 output = ''
-                async for delta in ai.stream_chat(user,place,history):
+                async for delta in ai.stream_chat(user, place, history):
                     output += delta
-                    yield json.dumps({'type':'delta','text':delta},ensure_ascii=False)+'\n'
+                    yield json.dumps({'type':'delta', 'text':delta}, ensure_ascii=False)+'\n'
                 if not output.strip():
                     raise RuntimeError('빈 답변')
                 with Db() as db:
-                    reply = Message(session_id=session_id,request_id=body.request_id,role='assistant',text=output)
+                    reply = Message(session_id=session_id, request_id=body.request_id, role='assistant', text=output)
                     db.add(reply)
                     db.commit()
-                    yield json.dumps({'type':'done','message':message_json(reply)},ensure_ascii=False)+'\n'
+                    yield json.dumps({'type':'done', 'message':message_json(reply, place)}, ensure_ascii=False)+'\n'
         except Exception as exc:
-            print('chat:',type(exc).__name__,flush=True)
-            yield json.dumps({'type':'error','text':public_ai_error(exc)},ensure_ascii=False)+'\n'
+            print('chat:', type(exc).__name__, flush=True)
+            yield json.dumps({'type':'error', 'text':public_ai_error(exc)}, ensure_ascii=False)+'\n'
         finally:
-            with Db() as db:
-                db.execute(delete(ChatLock).where(ChatLock.session_id==session_id,ChatLock.owner==lock_owner))
-                db.commit()
-    return StreamingResponse(events(),media_type='application/x-ndjson',headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
+            release_turn(user, owner)
+    return StreamingResponse(events(), media_type='application/x-ndjson',
+        headers={'Cache-Control':'no-cache', 'X-Accel-Buffering':'no'})
+
 
 @app.post('/sessions/{session_id}/preview')
 async def preview(session_id: str, user: UserId):
     limit(user, 'preview', 5)
     with Db() as db:
-        session = owned(db,Conversation,session_id,user)
-        rows = list(db.scalars(select(Message).where(Message.session_id==session_id,Message.id>session.summary_through).order_by(Message.id)))
-        if not any(r.role=='user' for r in rows) and not session.summary:
-            raise HTTPException(422,'먼저 이야기를 나눠 주세요.')
-    # 긴 기록도 분할하여 입력 한도를 넘지 않도록 누적 요약합니다.
-    summary = session.summary
+        owned(db, Conversation, session_id, user)
+        memory = db.get(UserMemory, user)
+        summary = memory.summary if memory else ''
+        through = memory.summary_through if memory else 0
+        rows = list(db.scalars(message_query(user).where(Message.id > through).order_by(Message.id)))
+        origins = places_by_session(db, user)
+        if not any(row.role == 'user' for row in rows) and not summary:
+            raise HTTPException(422, '먼저 이야기를 나눠 주세요.')
     try:
-        for index in range(0,len(rows),20):
-            summary = await ai.summarize(user,summary,[{'role':r.role,'content':r.text} for r in rows[index:index+20]])
+        for index in range(0, len(rows), 20):
+            summary = await ai.summarize(user, summary, context_items(rows[index:index+20], origins))
         return {'summary':summary[:6000]}
     except Exception:
-        raise HTTPException(502,'요약을 만들지 못했습니다. 서버 AI 설정을 확인해 주세요.')
+        raise HTTPException(502, '요약을 만들지 못했습니다. 서버 AI 설정을 확인해 주세요.')
 
 @app.post('/jobs',status_code=202)
 def create_job(body: JobInput,user: UserId):

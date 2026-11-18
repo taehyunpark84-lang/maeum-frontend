@@ -81,6 +81,7 @@ class Job(Base):
     session_id: Mapped[str] = mapped_column(ForeignKey('conversations.id'))
     request_id: Mapped[str] = mapped_column(String(36))
     approved_summary: Mapped[str] = mapped_column(Text)
+    source_through: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default='queued')
     stage: Mapped[str] = mapped_column(String(30), default='queued')
     plan: Mapped[str] = mapped_column(Text, default='')
@@ -90,6 +91,16 @@ class Job(Base):
     lease_until: Mapped[float] = mapped_column(Float(53), default=0)
     created: Mapped[float] = mapped_column(Float(53), default=time.time)
     updated: Mapped[float] = mapped_column(Float(53), default=time.time)
+
+class ArtPreview(Base):
+    """확인 화면을 열었던 시점의 범위. 이후 채팅은 다음 작품에 남깁니다."""
+    __tablename__ = 'art_previews'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), index=True)
+    session_id: Mapped[str] = mapped_column(ForeignKey('conversations.id'))
+    source_through: Mapped[int] = mapped_column(Integer)
+    story: Mapped[str] = mapped_column(Text)
+    created: Mapped[float] = mapped_column(Float(53), default=time.time)
 
 class ActiveJob(Base):
     # PK 제약으로 여러 API 프로세스에서도 사용자당 1개만 접수됩니다.

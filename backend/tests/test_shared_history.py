@@ -164,7 +164,11 @@ def test_common_summary_keeps_old_session_summary_and_preview(person, monkeypatc
     with Db() as db:
         assert db.get(UserMemory, person).summary == '사용자 공통 요약'
         assert db.get(Conversation, forest).summary == '기존 공간 요약 보존'
-    assert client.post(f'/sessions/{temple}/preview').json()['summary'] == '사용자 공통 요약'
+    async def select_story(user, new, preceding, reference, previous):
+        assert reference == '사용자 공통 요약'
+        return main.ai.StoryDecision(has_new_material=True, story='최근 이야기로 만든 작품')
+    monkeypatch.setattr(main.ai, 'select_art_story', select_story)
+    assert client.post(f'/sessions/{temple}/preview').json()['summary'] == '최근 이야기로 만든 작품'
     assert len(client.get(f'/sessions/{temple}/messages').json()) == 10
 
 

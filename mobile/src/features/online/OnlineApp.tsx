@@ -59,6 +59,7 @@ export default function OnlineApp() {
   const [art, setArt] = useState<Artwork | null>(null);
   const [preview, setPreview] = useState<{
     sessionId: string;
+    previewId: string;
     summary: string;
     requestId: string;
   } | null>(null);
@@ -186,12 +187,13 @@ export default function OnlineApp() {
     const id = chat.id;
     setReviewing(true);
     await perform(async () => {
-      const result = await api<{ summary: string }>(
+      const result = await api<{ summary: string; preview_id: string }>(
         `/sessions/${id}/preview`,
         "POST",
       );
       setPreview({
         sessionId: id,
+        previewId: result.preview_id,
         summary: result.summary,
         requestId: requestId(),
       });
@@ -204,6 +206,7 @@ export default function OnlineApp() {
       const job = await api<GenerationJob>("/jobs", "POST", {
         session_id: preview.sessionId,
         approved_summary: preview.summary,
+        preview_id: preview.previewId,
         request_id: preview.requestId,
       });
       setJobs((current) => [job, ...current.filter((j) => j.id !== job.id)]);

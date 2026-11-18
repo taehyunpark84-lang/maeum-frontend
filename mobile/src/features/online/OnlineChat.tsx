@@ -103,6 +103,15 @@ export default function OnlineChat({
   const mounted = useRef(true);
   const scroll = useRef<ScrollViewInstance>(null);
   const atBottom = useRef(true);
+  // 첫 렌더의 임시 스크롤 위치를 사용자의 스크롤로 오인하지 않습니다.
+  const userHasScrolled = useRef(false);
+  function scrollToLatest() {
+    requestAnimationFrame(() => {
+      if (mounted.current && (!userHasScrolled.current || atBottom.current)) {
+        scroll.current?.scrollToEnd({ animated: false });
+      }
+    });
+  }
   const { state, update } = useStore();
   const place = places[session.place_id];
   async function reload() {
@@ -181,6 +190,7 @@ export default function OnlineChat({
       setInput("");
     }
     atBottom.current = true;
+    userHasScrolled.current = false;
     try {
       await streamChat(session.id, pending.text, pending.id, (event) => {
         if (!mounted.current) return;
@@ -294,6 +304,10 @@ export default function OnlineChat({
             <>
               <ScrollView
                 ref={scroll}
+                onLayout={scrollToLatest}
+                onScrollBeginDrag={() => {
+                  userHasScrolled.current = true;
+                }}
                 keyboardShouldPersistTaps="handled"
                 contentContainerStyle={{
                   padding: 16,
@@ -302,6 +316,7 @@ export default function OnlineChat({
                   justifyContent: "flex-end",
                 }}
                 onScroll={(event) => {
+                  if (!userHasScrolled.current) return;
                   const { contentOffset, contentSize, layoutMeasurement } =
                     event.nativeEvent;
                   atBottom.current =
@@ -311,10 +326,7 @@ export default function OnlineChat({
                     80;
                 }}
                 scrollEventThrottle={100}
-                onContentSizeChange={() => {
-                  if (atBottom.current)
-                    scroll.current?.scrollToEnd({ animated: true });
-                }}
+                onContentSizeChange={scrollToLatest}
               >
                 {!messages.length && !loading && (
                   <AssistantBubble avatar={place.avatar}>

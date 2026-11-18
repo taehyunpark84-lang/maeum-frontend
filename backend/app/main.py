@@ -9,9 +9,10 @@ from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select, delete, func
 from sqlalchemy.exc import IntegrityError
-from .db import Db, User, Login, Conversation, Message, ChatLock, Job, ActiveJob, Diary, Metric, UserMemory, uid
+from .db import Db, User, Login, Conversation, Message, ChatLock, Job, ActiveJob, Diary, Metric, UserMemory, ArtPreview, uid
 from .security import current_user, hash_password, verify_password, token_hash
 from .limits import limit
+from .art_story import prepare_story
 from .shared_history import message_query, places_by_session, context_items, acquire_turn, release_turn
 from . import ai
 from .ai_errors import public_ai_error
@@ -34,6 +35,7 @@ class ChatInput(BaseModel):
     text: str = Field(min_length=1, max_length=3000)
 
 class JobInput(BaseModel):
+    preview_id: str | None = None
     session_id: str
     request_id: str = Field(pattern=r'^[a-zA-Z0-9-]{8,36}$')
     approved_summary: str = Field(min_length=1, max_length=6000)
@@ -229,19 +231,17 @@ async def preview(session_id: str, user: UserId):
     limit(user, 'preview', 5)
     with Db() as db:
         owned(db, Conversation, session_id, user)
-        memory = db.get(UserMemory, user)
-        summary = memory.summary if memory else ''
-        through = memory.summary_through if memory else 0
-        rows = list(db.scalars(message_query(user).where(Message.id > through).order_by(Message.id)))
-        origins = places_by_session(db, user)
-        if not any(row.role == 'user' for row in rows) and not summary:
-            raise HTTPException(422, '먼저 이야기를 나눠 주세요.')
     try:
-        for index in range(0, len(rows), 20):
-            summary = await ai.summarize(user, summary, context_items(rows[index:index+20], origins))
-        return {'summary':summary[:6000]}
+        story, through = await prepare_story(user)
     except Exception:
-        raise HTTPException(502, '요약을 만들지 못했습니다. 서버 AI 설정을 확인해 주세요.')
+        raise HTTPException(502, '이번 작품의 이야기를 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+    if not story:
+        raise HTTPException(422, '그림에 담고 싶은 이야기를 먼저 들려주세요.')
+    with Db() as db:
+        snapshot = ArtPreview(user_id=user, session_id=session_id, source_through=through, story=story)
+        db.add(snapshot)
+        db.commit()
+        return {'summary':story, 'preview_id':snapshot.id}
 
 @app.post('/jobs',status_code=202)
 def create_job(body: JobInput,user: UserId):
@@ -252,8 +252,14 @@ def create_job(body: JobInput,user: UserId):
         old = db.scalar(select(Job).where(Job.user_id==user,Job.request_id==body.request_id))
         if old:
             return job_json(old)
+        through = None  # 이전 앱의 요청은 범위를 임의로 소비하지 않습니다.
+        if body.preview_id:
+            snapshot = owned(db, ArtPreview, body.preview_id, user)
+            if snapshot.session_id != body.session_id:
+                raise HTTPException(422, '이야기를 확인한 공간이 다릅니다. 다시 확인해 주세요.')
+            through = snapshot.source_through
         row = Job(id=uid(),user_id=user,session_id=body.session_id,request_id=body.request_id,
-            approved_summary=body.approved_summary.strip())
+            approved_summary=body.approved_summary.strip(), source_through=through)
         try:
             db.add(row)
             db.flush()

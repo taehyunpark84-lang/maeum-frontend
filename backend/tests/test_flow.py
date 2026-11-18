@@ -150,6 +150,47 @@ def test_art_style_avoids_recent_families():
     for _ in range(20):
         assert choose_style(recent) not in recent
 
+
+def test_image_limit_counts_only_accepted_jobs(monkeypatch):
+    import app.main as main
+    from app.db import RateBucket
+    from sqlalchemy import delete, func
+    monkeypatch.setattr(main, 'IMAGE_REQUESTS_PER_HOUR', 1)
+    a = account('image_limit_user')
+    sid = session(a)
+    body = {'session_id': sid, 'request_id': 'image-limit-0001', 'approved_summary': '시험용 요약'}
+    first = client.post('/jobs', headers=a, json=body)
+    assert first.status_code == 202
+    job_id = first.json()['id']
+    with Db() as db:
+        count_before = db.scalar(select(func.sum(RateBucket.count)))
+    # 전송 재시도는 기존 작업을 돌려주며, 진행 중 충돌도 횟수를 소비하지 않습니다.
+    assert client.post('/jobs', headers=a, json=body).json()['id'] == job_id
+    other = {**body, 'request_id': 'image-limit-0002'}
+    assert client.post('/jobs', headers=a, json=other).status_code == 409
+    assert client.post(f'/jobs/{job_id}/retry', headers=a).status_code == 409
+    with Db() as db:
+        assert db.scalar(select(func.sum(RateBucket.count))) == count_before
+        row = db.get(Job, job_id)
+        row.status = 'completed'
+        db.execute(delete(ActiveJob).where(ActiveJob.job_id == job_id))
+        db.commit()
+    rejected = client.post('/jobs', headers=a, json=other)
+    assert rejected.status_code == 429
+    assert '시간당 1회' in rejected.json()['detail']
+    assert 1 <= int(rejected.headers['Retry-After']) <= 3600
+    with Db() as db:
+        assert db.scalar(select(Job).where(Job.request_id == other['request_id'])) is None
+        assert db.scalar(select(ActiveJob).where(ActiveJob.job_id == job_id)) is None
+    # 설정을 올리면 기존 카운터를 지우지 않고도 바로 다음 접수가 가능합니다.
+    monkeypatch.setattr(main, 'IMAGE_REQUESTS_PER_HOUR', 2)
+    accepted = client.post('/jobs', headers=a, json=other)
+    assert accepted.status_code == 202
+    with Db() as db:
+        db.execute(delete(ActiveJob).where(ActiveJob.job_id == accepted.json()['id']))
+        db.get(Job, accepted.json()['id']).status = 'completed'
+        db.commit()
+
 def test_rate_limit_and_password_storage():
     import pytest
     from fastapi import HTTPException

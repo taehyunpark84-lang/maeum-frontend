@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   useFonts,
@@ -266,8 +267,28 @@ export default function OnlineApp() {
       ) : (
         <SafeAreaView style={styles.screen}>
           <View style={[styles.row, { padding: 16 }]}>
-            <View style={{ flex: 1 }}>
-              <Title>{art ? "마음의 작품" : "마음이 머무는 곳"}</Title>
+            {!art && <View style={{ width: 46 }} />}
+            <View
+              style={{ flex: 1, alignItems: art ? "flex-start" : "center" }}
+            >
+              {art ? (
+                <Title>마음의 작품</Title>
+              ) : (
+                <>
+                  <Ionicons name="leaf-outline" size={20} color="#526E45" />
+                  <Text
+                    style={{
+                      fontFamily: fontsLoaded ? "PoemFont" : undefined,
+                      fontSize: 24,
+                      lineHeight: 34,
+                      color: "#263D2D",
+                      textAlign: "center",
+                    }}
+                  >
+                    마음이 머무는 곳
+                  </Text>
+                </>
+              )}
             </View>
             <IconButton
               name={art ? "close" : "settings-outline"}
@@ -337,7 +358,7 @@ export default function OnlineApp() {
               </>
             ) : (
               <>
-                {jobs[0] && (
+                {(activeJob || (jobs[0] && jobs[0].status !== "completed")) && (
                   <JobStatus
                     job={activeJob || jobs[0]}
                     retryDisabled={generationBusy}

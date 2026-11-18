@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,8 +19,6 @@ export default function PlaceCards({
   selectedId: PlaceId;
   onSelect: (id: PlaceId) => void;
 }) {
-  const { width, fontScale } = useWindowDimensions();
-  const singleColumn = width < 360 || fontScale > 1.2;
   return (
     <View style={local.grid}>
       {(Object.keys(places) as PlaceId[]).map((id) => {
@@ -38,7 +35,7 @@ export default function PlaceCards({
             style={({ pressed }) => [
               local.card,
               {
-                width: singleColumn ? "100%" : "48%",
+                width: "100%",
                 borderColor: selected ? place.color : colors.line,
                 opacity: pressed ? 0.82 : 1,
               },
@@ -81,8 +78,6 @@ export default function PlaceCards({
 
 const local = StyleSheet.create({
   grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     gap: 12,
     alignItems: "stretch",
   },
@@ -93,7 +88,8 @@ const local = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: colors.panel,
   },
-  landscape: { width: "100%", aspectRatio: 1.15 },
+  // 풍경은 넓게, 이미지 높이는 최대 220dp로 제한합니다.
+  landscape: { width: "100%", aspectRatio: 1.85, maxHeight: 220 },
   gradient: { flex: 1, justifyContent: "flex-end", padding: 12 },
   name: { color: "#fff", fontSize: 19, fontWeight: "700" },
   check: {
@@ -106,14 +102,14 @@ const local = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  body: { padding: 12, gap: 8, flex: 1 },
+  body: { padding: 12, gap: 4 },
   concept: { fontSize: 14, lineHeight: 21, fontWeight: "700" },
-  description: { color: colors.muted, fontSize: 14, lineHeight: 22, flex: 1 },
+  description: { color: colors.muted, fontSize: 14, lineHeight: 22 },
   character: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingTop: 10,
+    paddingTop: 6,
     marginTop: 4,
     borderTopWidth: 1,
     borderTopColor: colors.line,

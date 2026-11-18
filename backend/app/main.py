@@ -14,7 +14,7 @@ from .security import current_user, hash_password, verify_password, token_hash
 from .limits import limit
 from . import ai
 from .ai_errors import public_ai_error
-from .config import AI_MODE, DATA
+from .config import AI_MODE, DATA, IMAGE_REQUESTS_PER_HOUR
 from .tuning import CHAT_TIMEOUT_SECONDS, SUMMARY_TRIGGER_CHARS, RECENT_MESSAGE_COUNT, SUMMARY_MAX_CHARS, MAX_JOB_ATTEMPTS
 
 app = FastAPI(title='마음이 머무는 곳 API')
@@ -240,7 +240,6 @@ async def preview(session_id: str, user: UserId):
 
 @app.post('/jobs',status_code=202)
 def create_job(body: JobInput,user: UserId):
-    limit(user, 'image', 10, 3600)
     if not body.approved_summary.strip():
         raise HTTPException(422,'확인한 내용을 입력해 주세요.')
     with Db() as db:
@@ -254,6 +253,8 @@ def create_job(body: JobInput,user: UserId):
             db.add(row)
             db.flush()
             db.add(ActiveJob(user_id=user,job_id=row.id))
+            db.flush()
+            limit(user, 'image', IMAGE_REQUESTS_PER_HOUR, 3600, db=db)
             db.commit()
         except IntegrityError:
             db.rollback()
@@ -270,7 +271,6 @@ def jobs(user: UserId):
 
 @app.post('/jobs/{job_id}/retry',status_code=202)
 def retry_job(job_id: str,user: UserId):
-    limit(user, 'image', 10, 3600)
     with Db() as db:
         row = owned(db,Job,job_id,user)
         if row.status != 'failed' or row.attempts>=MAX_JOB_ATTEMPTS:
@@ -280,6 +280,8 @@ def retry_job(job_id: str,user: UserId):
         row.stage='queued'
         row.error=''
         try:
+            db.flush()
+            limit(user, 'image', IMAGE_REQUESTS_PER_HOUR, 3600, db=db)
             db.commit()
         except IntegrityError:
             raise HTTPException(409,'진행 중인 다른 작업이 있습니다.')

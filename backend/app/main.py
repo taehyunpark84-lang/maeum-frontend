@@ -13,6 +13,7 @@ from .db import Db, User, Login, Conversation, Message, ChatLock, Job, ActiveJob
 from .security import current_user, hash_password, verify_password, token_hash
 from .limits import limit
 from .art_story import prepare_story
+from .chat_text import clean_reply, public_chunks
 from .shared_history import message_query, places_by_session, context_items, acquire_turn, release_turn
 from . import ai
 from .ai_errors import public_ai_error
@@ -47,7 +48,8 @@ def owned(db, model, key, user):
     return row
 
 def message_json(row, place_id=None):
-    return {'place_id':place_id, 'id':row.id, 'role':row.role, 'text':row.text, 'created':row.created}
+    text = clean_reply(row.text) if row.role == 'assistant' else row.text
+    return {'place_id':place_id, 'id':row.id, 'role':row.role, 'text':text, 'created':row.created}
 
 def job_json(row):
     return {key:getattr(row,key) for key in ('id','session_id','status','stage','error','attempts','created')}
@@ -207,7 +209,7 @@ async def chat(session_id: str, body: ChatInput, user: UserId):
                 if not recent or recent[-1].id != previous.id:
                     history.append(request_message)
                 output = ''
-                async for delta in ai.stream_chat(user, place, history):
+                async for delta in public_chunks(ai.stream_chat(user, place, history)):
                     output += delta
                     yield json.dumps({'type':'delta', 'text':delta}, ensure_ascii=False)+'\n'
                 if not output.strip():

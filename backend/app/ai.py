@@ -12,6 +12,7 @@ from .tuning import TEXT_PROFILES, IMAGE_OPTIONS, PROMPT_VERSION
 from .db import Db, Metric, Job
 from sqlalchemy import select
 from .art_direction import COMFORT, SUBJECTS, STYLES, choose_style, choose_direction
+from .chat_text import model_history
 
 PROMPTS = Path(__file__).parent / 'prompts'
 PLACES = ('forest', 'ocean', 'cafe', 'temple', 'garden', 'cathedral')
@@ -50,7 +51,13 @@ async def stream_chat(user, place, history):
             yield chunk
         record(user, 'chat', profile, started)
         return
-    async with client().responses.stream(**profile, instructions=chat_instructions(place) + '\n이 사용자의 여러 공간 대화를 공유한다. 기록의 place_id와 speaker는 과거 발화 출처다. 다른 공간의 캐릭터 발화를 너의 정체성이나 말투로 이어받지 말고, 현재 시스템에 지정된 캐릭터와 대화 컨셉을 따른다. 과거 이야기와 작품은 참고하며 출처를 혼동하지 않는다. 사용자에게는 현재 캐릭터의 자연스러운 대화문만 답한다. 참고용 출처 표시나 place_id, speaker, text 같은 메타데이터 및 JSON 포장 형식을 답변에 출력하지 않는다.', input=history, store=False) as stream:
+    messages, origins = model_history(history)
+    instructions = chat_instructions(place) + '''\n이 사용자의 여러 공간 대화를 공유한다.
+아래 출처 목록은 입력 메시지의 0부터 시작하는 위치별 공간을 뜻하는 내부 정보다.
+다른 공간의 과거 발화를 현재 캐릭터의 정체성이나 말투로 이어받지 않는다.
+현재 캐릭터의 자연스러운 대화문만 답한다. 출처/역할 표시, JSON, 채널명 final/analysis는 출력하지 않는다.
+내부 출처 목록: ''' + json.dumps(origins, ensure_ascii=False)
+    async with client().responses.stream(**profile, instructions=instructions, input=messages, store=False) as stream:
         async for event in stream:
             if event.type == 'response.output_text.delta':
                 if first is None:

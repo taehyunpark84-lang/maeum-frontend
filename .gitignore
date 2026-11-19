@@ -10,6 +10,7 @@ build/
 .DS_Store
 /tmp/
 backend/.venv/
+backend/.runtime/
 backend/storage/
 __pycache__/
 .pytest_cache/

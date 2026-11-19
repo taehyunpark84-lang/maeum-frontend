@@ -361,3 +361,21 @@
 - 실행 환경의 Node 기본 실행 경로 문제로 설치된 v24.21.0/node.exe 절대 경로를 이용해 eslint/bin/eslint.js, typescript/bin/tsc --noEmit, tsx/dist/cli.mjs --test tests/*.test.ts 실행.
 - 미검증: adb daemon 연결 실패로 Android 화면/키보드 실기기 확인 못 함. iOS 화면도 미검증. 로그인·회원가입 서버 통합 테스트를 새로 실행한 것은 아님.
 - backend, DB, 인증 API, 음원 서비스, 빛 애니메이션, 채팅 말풍선·배경, 갤러리 로딩, 기존 이미지·대화 데이터는 수정하지 않음.
+
+## 2026-11-19 — maeum-2nd 이전 지침 개정
+- d8a7a8b 기준 최신 설정·이미지 캐시·저장 경로와 진행 기록 재확인.
+- MAEUM_2ND_MIGRATION_GUIDE.md 작성, 기존 NEW_LAPTOP_START.md는 최신 파일 안내로 교체.
+- 새 프로젝트 이름/식별자/DB/문서명, 별도 GitHub 저장소 계획, 이번 로컬 이전과 향후 Google Cloud VM·MySQL 연동 단계 구분 반영.
+- 문서만 변경. 복사본 생성·환경 설치·앱 실행·클라우드 연동은 미실시.
+
+
+## 2026-11-19 — Codex 업데이트 후 백엔드 실행 실패 재발 방지
+- 원인: .venv/pyvenv.cfg가 삭제된 Codex 내부 Python 3.12 경로를 참조하여 No Python at 오류 발생.
+- 같은 Python 3.12.14의 실행 파일·표준 라이브러리를 backend/.runtime/python312에 독립 복사(site-packages 제외). .venv를 --upgrade --without-pip으로 연결 복구하여 기존 패키지 보존. Codex 설치 경로에 더 이상 의존하지 않음.
+- .runtime Git 제외 추가. run-server.cmd/run-worker.cmd에 가상환경과 필수 모듈 사전 점검 추가. 스크립트 위치를 기준으로 작업 디렉터리를 고정. 서버/작업자의 기존 실행 모듈·설정 그대로 사용.
+- backend/README.md에 일상 실행 방법과 Python recovery, 다른 PC 설치, 프로젝트 경로 변경 시 주의사항 기록. 기존 NEW_LAPTOP_START.md 및 별도 이관 문서 변경분은 건드리지 않음.
+- 검증: pip check 통과, requirements.lock.txt의 모든 버전 일치. 기존 백엔드 테스트 34개 통과. 별도 mock DB에서 실제 HTTP 서버 시작→가입→로그인→/me→종료→재시작→같은 계정 로그인 통과. 작업자도 시작/종료를 2회 검증. 과금 API 호출 없음.
+- 제한된 실행 환경에서는 하위 프로세스/로컬 연결이 막혀 초기 검증이 중단됨. 권한 있는 실행으로 같은 검증을 완료함.
+- 실제 DB 모든 테이블 내용과 원본 이미지 SHA256이 작업 전후 동일함을 확인. dreaming1103 존재 확인. 실제 비밀번호는 알 수 없으므로 해당 계정의 비밀번호 로그인 성공 자체는 미검증(비밀번호 재설정 안 함).
+- 실제 API와 작업자를 수정한 cmd로 실행. localhost 및 172.30.1.18:8000/health 정상, AI mode openai. 로그: tmp/runtime-repair. 휴대폰에서 실제 로그인은 사용자 확인 필요.
+- 앱 화면, 인증 코드, 채팅/이미지 생성 코드, DB 스키마, 기존 데이터, API 키는 수정하지 않음.

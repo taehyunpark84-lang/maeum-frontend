@@ -1,0 +1,113 @@
+﻿마음이 머무는 곳 — 실행 안내
+
+현재 노트북 기준 프로젝트 위치
+C:\최종프로젝트1\maeum-frontend
+
+[1. 실행 전 확인]
+- 노트북과 스마트폰을 같은 Wi-Fi에 연결합니다.
+- 아래 세 작업은 각각 별도의 터미널에서 실행합니다.
+- 이미 실행 중인 서버나 작업자가 있다면 중복 실행하지 마세요.
+- API 키는 backend\.env에 저장합니다. .env.example에 넣지 않습니다.
+- API 키를 변경했다면 서버와 작업자를 모두 종료한 뒤 다시 실행합니다.
+
+[2. 첫 번째 터미널: 로그인·채팅 서버]
+아래 명령을 순서대로 입력합니다.
+
+cd C:\최종프로젝트1\maeum-frontend\backend
+.\run-server.cmd
+
+정상 실행 확인:
+- 터미널에 Application startup complete가 표시됩니다.
+- PC 브라우저에서 아래 주소를 엽니다.
+  http://localhost:8000/health
+- 응답에 "status":"ok"가 있으면 서버가 응답하고 있습니다.
+- 실제 AI를 사용하는 경우 "ai_mode":"openai"도 확인합니다.
+
+[3. 두 번째 터미널: 그림일기 생성 작업자]
+새 터미널을 열고 아래 명령을 입력합니다.
+
+cd C:\최종프로젝트1\maeum-frontend\backend
+.\run-worker.cmd
+
+정상 실행 확인:
+- '그림일기 작업자 시작'이 표시됩니다.
+- 작업자가 실행되어 있어야 그림일기 생성 작업을 처리합니다.
+
+[4. 세 번째 터미널: 모바일 앱]
+새 터미널을 열고 아래 명령을 입력합니다.
+
+cd C:\최종프로젝트1\maeum-frontend\mobile
+npm start
+
+- 터미널에 표시되는 QR코드로 Expo Go에서 앱을 엽니다.
+- Android: Expo Go의 QR 스캔 기능을 사용합니다.
+- iPhone: 기본 카메라로 QR코드를 읽고 Expo Go로 엽니다.
+- 로컬 네트워크 접근 권한을 요청하면 허용합니다.
+- 기존 앱 계정으로 로그인합니다.
+
+수정한 코드가 반영되지 않는 경우:
+모바일 터미널에서 Ctrl+C로 종료한 뒤 아래 명령으로 다시 실행합니다.
+
+npm start -- --clear
+
+--clear는 개발용 코드 캐시를 지웁니다.
+서버의 계정·대화·그림을 삭제하는 명령이 아닙니다.
+로그인 서버 실행 실패를 해결하는 명령도 아닙니다.
+
+[5. 로그인 연결이 안 되는 경우]
+1) 첫 번째 터미널에서 서버가 정상 실행되었는지 확인합니다.
+2) PC 브라우저에서 http://localhost:8000/health를 확인합니다.
+3) 새 터미널에서 ipconfig를 입력합니다.
+4) Wi-Fi 항목의 IPv4 주소를 확인합니다.
+5) mobile\.env의 EXPO_PUBLIC_API_URL 주소와 비교합니다.
+
+작성 시점의 설정:
+EXPO_PUBLIC_API_URL=http://172.30.1.18:8000
+
+PC의 IPv4 주소가 바뀌었다면 위 IP 부분을 새 주소로 수정합니다.
+수정 후 모바일 터미널을 종료하고 npm start -- --clear로 다시 실행합니다.
+스마트폰 브라우저에서도 http://PC의IPv4주소:8000/health를 확인합니다.
+PC에서는 열리지만 스마트폰에서는 열리지 않으면 Wi-Fi 연결과 방화벽을 확인합니다.
+
+주의:
+- npm start만 실행하면 로그인·채팅 서버는 시작되지 않습니다.
+- 'fetch failed' 등 연결 오류가 곧 비밀번호 오류라는 뜻은 아닙니다.
+- 서버 정상 연결 후 '아이디 또는 비밀번호를 확인해 주세요'가 나오면 입력값을 확인합니다.
+- No Python at 오류가 나오면 아래 Python 복구 안내를 확인합니다.
+
+[6. 실행 종료]
+- 그림일기를 생성 중이라면 완료될 때까지 기다립니다.
+- 각 터미널에서 Ctrl+C를 눌러 종료합니다.
+- 터미널을 닫으면 해당 서버·작업자·앱 개발 서버도 종료될 수 있습니다.
+- 다음 실행 때는 2~4번을 다시 진행합니다.
+
+[7. Python 환경 주의사항]
+현재 PC는 backend\.runtime\python312의 독립 Python을 사용합니다.
+Codex 내부 Python 경로를 다시 연결하지 마세요.
+backend\.runtime과 backend\.venv 폴더를 삭제하지 마세요.
+프로젝트 폴더를 이동하면 가상환경 경로 복구가 필요할 수 있습니다.
+
+현재 PC에서 .runtime 폴더가 남아 있고 가상환경 경로만 복구할 경우:
+서버와 작업자를 종료한 뒤 실행합니다.
+
+cd C:\최종프로젝트1\maeum-frontend\backend
+.\.runtime\python312\python.exe -m venv --upgrade --without-pip .venv
+.\.venv\Scripts\python.exe -c "import sys; print(sys.base_prefix)"
+
+출력 경로가 현재 프로젝트의 backend\.runtime\python312인지 확인합니다.
+복구 후 서버와 작업자를 다시 실행합니다.
+
+다른 노트북에 GitHub에서 내려받은 경우:
+- .runtime, .venv, .env, 기존 DB와 이미지는 Git에 포함되지 않습니다.
+- 이 안내의 실행 명령만으로 최초 설치가 완료되지는 않습니다.
+- 별도로 설치한 Python으로 환경을 만들고 backend\README.md의 설치 절차를 진행합니다.
+- 계정·대화·이미지가 필요하다면 별도의 데이터 이관이 필요합니다.
+
+[8. 보관해야 하는 파일]
+backend\.env                 API 키 등 서버 설정
+mobile\.env                  앱이 접속할 서버 주소
+backend\storage\maeum.db    계정·대화·작품 정보
+backend\storage\images      생성된 원본 그림
+
+문제 해결을 위해 위 파일을 임의로 삭제하지 마세요.
+API 키가 포함된 .env를 GitHub에 올리거나 공유하지 마세요.

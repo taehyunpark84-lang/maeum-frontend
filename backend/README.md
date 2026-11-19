@@ -5,6 +5,10 @@ Python 3.12 이상. 기본 DB는 설치가 필요 없는 **파일형 SQLite**이
 
 ## 처음 실행 (PowerShell, backend 폴더)
 
+**Python은 Codex 내부 실행 파일이 아닌 별도로 설치된 Python을 사용하세요.**
+Codex 내부 `WindowsApps/OpenAI.CodexPrimaryRuntime...` 경로는 앱 업데이트 때 바뀝니다.
+그 경로로 만든 가상환경은 업데이트 후 서버가 시작되지 않을 수 있습니다.
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.lock.txt
@@ -15,6 +19,49 @@ Copy-Item .env.example .env
 
 현재 작업 폴더에는 가상환경과 개발 DB가 준비되어 있습니다. 다른 PC에서는 위 설치부터 실행하세요.
 Windows Store의 python 실행 별칭이 실패하면 설치된 Python의 절대 경로나 `py -3.12`를 사용하세요.
+
+## 매일 실행 및 Python recovery
+
+현재 PC는 `backend/.runtime/python312`에 독립 보관된 Python 3.12를 사용합니다.
+`.venv`의 기본 Python이 이 폴더를 참조하므로 Codex 업데이트에 의존하지 않습니다.
+`.runtime`과 `.venv`는 Git에 업로드하지 않습니다. 다른 PC는 별도 설치한 Python으로 위의 처음 실행 절차를 수행하세요.
+
+서버 터미널:
+
+```powershell
+cd C:\최종프로젝트1\maeum-frontend\backend
+.\run-server.cmd
+```
+
+작업자 터미널:
+
+```powershell
+cd C:\최종프로젝트1\maeum-frontend\backend
+.\run-worker.cmd
+```
+
+모바일 터미널:
+
+```powershell
+cd C:\최종프로젝트1\maeum-frontend\mobile
+npm start
+```
+
+세 터미널을 열어 두세요. `npm start`는 백엔드를 시작하지 않습니다.
+로그인 전 PC 브라우저에서 `http://localhost:8000/health`의 `status: ok`를 확인하세요.
+API 실행 창에 `Application startup complete`가 없거나 오류가 있으면 먼저 그 오류를 확인하세요.
+
+현재 PC에서 `.venv`의 기본 경로만 복구할 때:
+
+```powershell
+cd C:\최종프로젝트1\maeum-frontend\backend
+.\.runtime\python312\python.exe -m venv --upgrade --without-pip .venv
+.\.venv\Scripts\python.exe -c "import sys; print(sys.base_prefix)"
+```
+
+프로젝트 폴더를 옮기거나 `.runtime`을 삭제하면 경로 복구가 필요합니다.
+`.runtime`도 없다면 독립 설치된 Python 3.12로 가상환경을 새로 만들고 잠금 파일의 패키지를 설치하세요.
+`storage`와 `.env`는 삭제하지 마세요. 계정·대화·이미지와 API 설정이 들어 있습니다.
 
 별도 터미널에서 작업자를 실행해야 그림일기가 생성됩니다.
 

@@ -30,6 +30,7 @@ import {
   type GenerationJob,
 } from "../../services/api";
 import ChatArtwork from "./ChatArtwork";
+import { useImageViewport } from "./ArtworkImage";
 
 // 메시지 행은 투명하게 유지하고 작은 말풍선에만 기존 반투명 색을 적용합니다.
 function AssistantBubble({
@@ -69,6 +70,7 @@ function AssistantBubble({
 
 export default function OnlineChat({
   session,
+  imageScope,
   onBack,
   onDiary,
   generationBusy,
@@ -78,6 +80,7 @@ export default function OnlineChat({
   poemFont,
 }: {
   session: OnlineSession;
+  imageScope: string;
   onBack: () => void;
   onDiary: () => void;
   generationBusy: boolean;
@@ -102,10 +105,13 @@ export default function OnlineChat({
   const locked = useRef(false);
   const mounted = useRef(true);
   const scroll = useRef<ScrollViewInstance>(null);
+  const imageViewport = useImageViewport(scroll, true);
+  const viewportHeight = useRef(0);
   const atBottom = useRef(true);
   // 첫 렌더의 임시 스크롤 위치를 사용자의 스크롤로 오인하지 않습니다.
   const userHasScrolled = useRef(false);
   function scrollToLatest() {
+    imageViewport.refresh();
     requestAnimationFrame(() => {
       if (mounted.current && (!userHasScrolled.current || atBottom.current)) {
         scroll.current?.scrollToEnd({ animated: false });
@@ -304,7 +310,10 @@ export default function OnlineChat({
             <>
               <ScrollView
                 ref={scroll}
-                onLayout={scrollToLatest}
+                onLayout={(event) => {
+                  viewportHeight.current = event.nativeEvent.layout.height;
+                  scrollToLatest();
+                }}
                 onScrollBeginDrag={() => {
                   userHasScrolled.current = true;
                 }}
@@ -316,9 +325,20 @@ export default function OnlineChat({
                   justifyContent: "flex-end",
                 }}
                 onScroll={(event) => {
-                  if (!userHasScrolled.current) return;
                   const { contentOffset, contentSize, layoutMeasurement } =
                     event.nativeEvent;
+                  if (
+                    !loading &&
+                    (userHasScrolled.current ||
+                      contentSize.height -
+                        contentOffset.y -
+                        layoutMeasurement.height <
+                        80)
+                  ) {
+                    imageViewport.enable();
+                  }
+                  imageViewport.refresh();
+                  if (!userHasScrolled.current) return;
                   atBottom.current =
                     contentSize.height -
                       contentOffset.y -
@@ -326,7 +346,11 @@ export default function OnlineChat({
                     80;
                 }}
                 scrollEventThrottle={100}
-                onContentSizeChange={scrollToLatest}
+                onContentSizeChange={(_width, height) => {
+                  if (!loading && height <= viewportHeight.current + 1)
+                    imageViewport.enable();
+                  scrollToLatest();
+                }}
               >
                 {!messages.length && !loading && (
                   <AssistantBubble avatar={place.avatar}>
@@ -337,14 +361,24 @@ export default function OnlineChat({
                   message.role === "assistant" ? (
                     <View key={message.id} style={{ gap: 10 }}>
                       {message.artwork && (
-                        <AssistantBubble avatar={places[message.place_id ?? session.place_id].avatar}>
+                        <AssistantBubble
+                          avatar={
+                            places[message.place_id ?? session.place_id].avatar
+                          }
+                        >
                           <ChatArtwork
                             artwork={message.artwork}
+                            imageScope={imageScope}
+                            viewport={imageViewport}
                             poemFont={poemFont}
                           />
                         </AssistantBubble>
                       )}
-                      <AssistantBubble avatar={places[message.place_id ?? session.place_id].avatar}>
+                      <AssistantBubble
+                        avatar={
+                          places[message.place_id ?? session.place_id].avatar
+                        }
+                      >
                         <Copy>
                           {message.artwork
                             ? message.artwork.interpretation
@@ -384,8 +418,8 @@ export default function OnlineChat({
                       {reviewing
                         ? "그림일기를 위한 대화를 정리하고 있어요…"
                         : activeJob?.stage === "explaining"
-                            ? "그림과 시가 완성되어 소개할 이야기를 준비하고 있어요."
-                            : "그림과 시를 만들고 있어요. 기다리는 동안 계속 이야기해도 좋아요."}
+                          ? "그림과 시가 완성되어 소개할 이야기를 준비하고 있어요."
+                          : "그림과 시를 만들고 있어요. 기다리는 동안 계속 이야기해도 좋아요."}
                     </Text>
                   </AssistantBubble>
                 )}

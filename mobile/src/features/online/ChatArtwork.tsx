@@ -7,24 +7,24 @@ import {
   View,
   type ScrollViewInstance,
 } from "react-native";
-import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Copy, IconButton } from "../../components/ui";
-import { API_URL, authHeaders, type Artwork } from "../../services/api";
+import { type Artwork } from "../../services/api";
+import ArtworkImage, { type ImageViewport } from "./ArtworkImage";
 
 export default function ChatArtwork({
   artwork,
+  imageScope,
+  viewport,
   poemFont,
 }: {
   artwork: Artwork;
+  imageScope: string;
+  viewport: ImageViewport;
   poemFont?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const fullView = useRef<ScrollViewInstance>(null);
-  const source = {
-    uri: `${API_URL}/diaries/${artwork.id}/image`,
-    headers: authHeaders(),
-  };
   return (
     <>
       <View style={{ width: 180, maxWidth: "100%", gap: 10 }}>
@@ -34,10 +34,11 @@ export default function ChatArtwork({
           accessibilityLabel={`${artwork.title} 크게 보기`}
           onPress={() => setExpanded(true)}
         >
-          <Image
-            source={source}
-            cachePolicy="none"
-            contentFit="contain"
+          <ArtworkImage
+            id={artwork.id}
+            scope={imageScope}
+            preview
+            viewport={viewport}
             style={{
               width: 160,
               maxWidth: "100%",
@@ -90,12 +91,13 @@ export default function ChatArtwork({
             contentContainerStyle={{ padding: 16, gap: 16 }}
             maximumZoomScale={3}
           >
-            <Image
-              source={source}
-              cachePolicy="none"
-              contentFit="contain"
-              style={{ width: "100%", aspectRatio: 2 / 3 }}
-            />
+            {expanded && (
+              <ArtworkImage
+                id={artwork.id}
+                scope={imageScope}
+                style={{ width: "100%", aspectRatio: 2 / 3 }}
+              />
+            )}
             <Copy>{artwork.title}</Copy>
             <Text
               selectable

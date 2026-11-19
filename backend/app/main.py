@@ -14,6 +14,7 @@ from .security import current_user, hash_password, verify_password, token_hash
 from .limits import limit
 from .art_story import prepare_story
 from .chat_text import clean_reply, public_chunks
+from .thumbnails import thumbnail_for
 from .shared_history import message_query, places_by_session, context_items, acquire_turn, release_turn
 from . import ai
 from .ai_errors import public_ai_error
@@ -314,6 +315,22 @@ def image(diary_id: str,user: UserId):
         if not path.is_file():
             raise HTTPException(404,'이미지 파일을 찾을 수 없습니다.')
         return FileResponse(path,media_type='image/png',headers={'Cache-Control':'private, no-store'})
+
+
+@app.get('/diaries/{diary_id}/thumbnail')
+def thumbnail(diary_id: str, user: UserId):
+    with Db() as db:
+        row = owned(db, Diary, diary_id, user)
+        original = DATA/'images'/row.image_file
+    if not original.is_file():
+        raise HTTPException(404, '이미지 파일을 찾을 수 없습니다.')
+    try:
+        path = thumbnail_for(original, DATA/'thumbnails')
+        media_type = 'image/jpeg'
+    except (OSError, ValueError):
+        # 미리보기 저장 공간/변환 문제로 기존 작품까지 사라지지 않게 합니다.
+        path, media_type = original, 'image/png'
+    return FileResponse(path, media_type=media_type, headers={'Cache-Control':'private, no-store'})
 
 @app.get('/metrics')
 def metrics(user: UserId):

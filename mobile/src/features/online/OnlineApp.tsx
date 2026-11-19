@@ -6,6 +6,7 @@ import {
   BackHandler,
   Pressable,
   ScrollView,
+  type ScrollViewInstance,
   Text,
   View,
 } from "react-native";
@@ -31,7 +32,6 @@ import {
   api,
   ApiError,
   API_URL,
-  authHeaders,
   restoreToken,
   saveToken,
   requestId,
@@ -46,10 +46,21 @@ import PlaceCards from "../PlaceCards";
 import AuthScreen from "./AuthScreen";
 import OnlineChat from "./OnlineChat";
 import JobStatus from "./JobStatus";
+import ArtworkImage, { useImageViewport } from "./ArtworkImage";
 import type { PlaceId } from "../../types";
 
 export default function OnlineApp() {
   const [account, setAccount] = useState<Account | null>(null);
+  const galleryScroll = useRef<ScrollViewInstance>(null);
+  const imageViewport = useImageViewport(galleryScroll);
+  const [imageScope, setImageScope] = useState("");
+  useEffect(
+    () => () => {
+      void Image.clearMemoryCache().catch(() => {});
+      void Image.clearDiskCache().catch(() => {});
+    },
+    [account],
+  );
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<"places" | "gallery">("places");
   const [artworks, setArtworks] = useState<Artwork[]>([]);
@@ -90,6 +101,8 @@ export default function OnlineApp() {
   const authenticate = useCallback(async () => {
     const user = await api<Account>("/me");
     await refresh();
+    // 이미지 캐시만 로그인마다 분리합니다. 인증 처리 자체는 그대로입니다.
+    setImageScope(`${user.id}-${Date.now()}-${Math.random()}`);
     setAccount(user);
   }, [refresh]);
   useEffect(() => {
@@ -228,10 +241,6 @@ export default function OnlineApp() {
       setMetrics(null);
     });
   }
-  const imageSource = (item: Artwork) => ({
-    uri: `${API_URL}/diaries/${item.id}/image`,
-    headers: authHeaders(),
-  });
   const poemStyle = {
     fontFamily: fontsLoaded ? "PoemFont" : undefined,
     fontSize: 21,
@@ -253,6 +262,7 @@ export default function OnlineApp() {
       {chat ? (
         <OnlineChat
           key={chat.id}
+          imageScope={imageScope}
           session={chat}
           onBack={() => setChat(null)}
           onDiary={() => void prepareDiary()}
@@ -295,6 +305,11 @@ export default function OnlineApp() {
             />
           </View>
           <ScrollView
+            ref={galleryScroll}
+            onLayout={imageViewport.refresh}
+            onContentSizeChange={imageViewport.refresh}
+            onScroll={imageViewport.refresh}
+            scrollEventThrottle={100}
             contentContainerStyle={[
               styles.content,
               tab === "gallery" && !art && { backgroundColor: "#E8E1D5" },
@@ -327,10 +342,10 @@ export default function OnlineApp() {
                   }}
                 >
                   <View style={{ padding: 15, backgroundColor: "#FFFCF5" }}>
-                    <Image
-                      source={imageSource(art)}
-                      contentFit="contain"
-                      cachePolicy="none"
+                    <ArtworkImage
+                      key={art.id}
+                      id={art.id}
+                      scope={imageScope}
                       style={{ width: "100%", aspectRatio: 2 / 3 }}
                     />
                   </View>
@@ -443,10 +458,11 @@ export default function OnlineApp() {
                                 backgroundColor: "#FFFCF5",
                               }}
                             >
-                              <Image
-                                source={imageSource(item)}
-                                contentFit="contain"
-                                cachePolicy="none"
+                              <ArtworkImage
+                                id={item.id}
+                                scope={imageScope}
+                                preview
+                                viewport={imageViewport}
                                 style={{ width: "100%", aspectRatio: 2 / 3 }}
                               />
                             </View>
@@ -493,17 +509,15 @@ export default function OnlineApp() {
             <View
               style={[styles.row, { padding: 12, backgroundColor: "#FFFCF7" }]}
             >
-              {(["places", "gallery"] as const).map(
-                (value, index) => (
-                  <View key={value} style={{ flex: 1 }}>
-                    <Button
-                      label={["공간", "갤러리"][index]}
-                      secondary={tab !== value}
-                      onPress={() => setTab(value)}
-                    />
-                  </View>
-                ),
-              )}
+              {(["places", "gallery"] as const).map((value, index) => (
+                <View key={value} style={{ flex: 1 }}>
+                  <Button
+                    label={["공간", "갤러리"][index]}
+                    secondary={tab !== value}
+                    onPress={() => setTab(value)}
+                  />
+                </View>
+              ))}
             </View>
           )}
         </SafeAreaView>

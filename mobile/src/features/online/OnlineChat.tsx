@@ -503,49 +503,58 @@ export default function OnlineChat({
       {settingsOpen && (
         <Sheet title="공간의 소리와 빛" onClose={() => setSettingsOpen(false)}>
           <Sound placeId={session.place_id} />
-          <View style={styles.row}>
-            <Copy>배경 빛 효과</Copy>
-            <Switch
-              accessibilityLabel="빛 효과 켜기"
-              value={state.settings.glowEnabled}
-              onValueChange={(glowEnabled) =>
+          <View
+            style={{
+              backgroundColor: "#EEEDE5",
+              borderRadius: 20,
+              padding: 12,
+              gap: 16,
+            }}
+          >
+            <View style={styles.row}>
+              <Copy>배경 빛 효과</Copy>
+              <Switch
+                accessibilityLabel="빛 효과 켜기"
+                value={state.settings.glowEnabled}
+                onValueChange={(glowEnabled) =>
+                  update((current) => ({
+                    ...current,
+                    settings: { ...current.settings, glowEnabled },
+                  }))
+                }
+              />
+            </View>
+            <Copy>
+              빛 강도 · {Math.round(state.settings.glowIntensity * 100)}%
+            </Copy>
+            <Slider
+              accessibilityLabel="빛 강도"
+              minimumValue={0.2}
+              maximumValue={1}
+              step={0.05}
+              value={state.settings.glowIntensity}
+              onValueChange={(glowIntensity) =>
                 update((current) => ({
                   ...current,
-                  settings: { ...current.settings, glowEnabled },
+                  settings: { ...current.settings, glowIntensity },
+                }))
+              }
+            />
+            <Copy>변화 속도 · {state.settings.glowSpeed.toFixed(1)}배</Copy>
+            <Slider
+              accessibilityLabel="빛 변화 속도"
+              minimumValue={0.5}
+              maximumValue={3}
+              step={0.1}
+              value={state.settings.glowSpeed}
+              onValueChange={(glowSpeed) =>
+                update((current) => ({
+                  ...current,
+                  settings: { ...current.settings, glowSpeed },
                 }))
               }
             />
           </View>
-          <Copy>
-            빛 강도 · {Math.round(state.settings.glowIntensity * 100)}%
-          </Copy>
-          <Slider
-            accessibilityLabel="빛 강도"
-            minimumValue={0.2}
-            maximumValue={1}
-            step={0.05}
-            value={state.settings.glowIntensity}
-            onValueChange={(glowIntensity) =>
-              update((current) => ({
-                ...current,
-                settings: { ...current.settings, glowIntensity },
-              }))
-            }
-          />
-          <Copy>변화 속도 · {state.settings.glowSpeed.toFixed(1)}배</Copy>
-          <Slider
-            accessibilityLabel="빛 변화 속도"
-            minimumValue={0.5}
-            maximumValue={3}
-            step={0.1}
-            value={state.settings.glowSpeed}
-            onValueChange={(glowSpeed) =>
-              update((current) => ({
-                ...current,
-                settings: { ...current.settings, glowSpeed },
-              }))
-            }
-          />
           <Button
             label="배경만 보기"
             secondary

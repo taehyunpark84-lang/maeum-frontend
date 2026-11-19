@@ -4,17 +4,21 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Text,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button, Copy, Field, Title, styles } from "../../components/ui";
+import { Button, Copy, Field, styles } from "../../components/ui";
 import { places } from "../../config/assets";
-import { api, saveToken, API_URL } from "../../services/api";
+import { api, saveToken } from "../../services/api";
 
 export default function AuthScreen({
   onLogin,
+  logoFont,
 }: {
   onLogin: () => Promise<void>;
+  logoFont?: string;
 }) {
   const [register, setRegister] = useState(false);
   const [username, setUsername] = useState("");
@@ -62,7 +66,21 @@ export default function AuthScreen({
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.content}
           >
-            <Title>마음이 머무는 곳</Title>
+            <View style={{ alignItems: "center" }}>
+              <Ionicons name="leaf-outline" size={20} color="#526E45" />
+              <Text
+                accessibilityRole="header"
+                style={{
+                  fontFamily: logoFont,
+                  fontSize: 24,
+                  lineHeight: 34,
+                  color: "#263D2D",
+                  textAlign: "center",
+                }}
+              >
+                마음이 머무는 곳
+              </Text>
+            </View>
             <Copy>당신의 이야기가 작품으로 머무는 공간</Copy>
             <Field
               label="아이디 · 영문/숫자/밑줄 4~40자"
@@ -110,19 +128,6 @@ export default function AuthScreen({
                 setError("");
               }}
             />
-            <Copy muted>
-              대화와 작품은 계정별 비공개로 보관됩니다. AI 응답은 전문가의
-              진단이나 치료가 아닙니다.
-            </Copy>
-            {__DEV__ && (
-              <View>
-                <Copy muted>개발 서버: {API_URL}</Copy>
-                <Copy muted>
-                  연결되지 않으면 mobile/.env의 PC 주소와 서버 실행 상태를
-                  확인하세요.
-                </Copy>
-              </View>
-            )}
           </ScrollView>
         </SafeAreaView>
       </KeyboardAvoidingView>

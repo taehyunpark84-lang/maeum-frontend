@@ -256,7 +256,13 @@ export default function OnlineApp() {
         <Copy>보관함을 열고 있어요…</Copy>
       </SafeAreaView>
     );
-  if (!account) return <AuthScreen onLogin={authenticate} />;
+  if (!account)
+    return (
+      <AuthScreen
+        onLogin={authenticate}
+        logoFont={fontsLoaded ? "PoemFont" : undefined}
+      />
+    );
   return (
     <View style={{ flex: 1 }}>
       {chat ? (

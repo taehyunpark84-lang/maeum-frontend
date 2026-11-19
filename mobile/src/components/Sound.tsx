@@ -5,10 +5,6 @@ import { useStore } from "../storage/store";
 import type { PlaceId, Settings } from "../types";
 import { Button, Copy, IconButton, styles } from "./ui";
 import { useAmbientAudio } from "./AmbientAudioProvider";
-const clock = (seconds: number) => {
-  const whole = Math.max(0, Math.floor(seconds || 0));
-  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
-};
 export function Sound({ placeId }: { placeId: PlaceId }) {
   const { state, update } = useStore();
   const { audio, status } = useAmbientAudio();
@@ -82,23 +78,6 @@ export function Sound({ placeId }: { placeId: PlaceId }) {
           }
         />
       </View>
-      {available && (
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-            <Copy muted>
-              {clock(current ? status.currentTime : 0)} /{" "}
-              {clock(current ? status.duration : 0)} ·{" "}
-              {audioLoop ? "반복 켜짐" : "한 번 재생"}
-            </Copy>
-          </View>
-          <IconButton
-            name="stop"
-            label="배경음 정지하고 처음으로"
-            disabled={!ready}
-            onPress={() => void audio.stop()}
-          />
-        </View>
-      )}
       {current && status.error && (
         <>
           <Copy>{status.error}</Copy>
@@ -150,11 +129,11 @@ export function Sound({ placeId }: { placeId: PlaceId }) {
           onValueChange={(value) => preferences({ audioLoop: value })}
         />
       </View>
-      <Copy muted>
-        {available
-          ? "앱을 벗어나면 일시정지돼요. 돌아와서 재생 버튼을 눌러주세요."
-          : "이 공간의 음원은 아직 준비 중이에요. 볼륨과 반복 설정은 저장돼요."}
-      </Copy>
+      {!available && (
+        <Copy muted>
+          이 공간의 음원은 아직 준비 중이에요. 볼륨과 반복 설정은 저장돼요.
+        </Copy>
+      )}
     </View>
   );
 }

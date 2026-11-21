@@ -28,7 +28,10 @@ import {
   type OnlineMessage,
   type OnlineSession,
   type GenerationJob,
+  type Account,
 } from "../../services/api";
+import GenderSelector from "./GenderSelector";
+import { splitChatDisplay } from "../../services/chatDisplay";
 import ChatArtwork from "./ChatArtwork";
 import { useImageViewport } from "./ArtworkImage";
 
@@ -51,7 +54,14 @@ function AssistantBubble({
       <Image
         source={avatar}
         accessibilityLabel="대화 상대 프로필"
-        style={{ width: 28, height: 28, borderRadius: 14, marginTop: 4 }}
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 14,
+          marginTop: 4,
+          borderWidth: 2,
+          borderColor: "#FFF9E8",
+        }}
       />
       <View
         style={{
@@ -70,6 +80,8 @@ function AssistantBubble({
 
 export default function OnlineChat({
   session,
+  account,
+  onProfileChange,
   imageScope,
   onBack,
   onDiary,
@@ -80,6 +92,8 @@ export default function OnlineChat({
   poemFont,
 }: {
   session: OnlineSession;
+  account: Account;
+  onProfileChange: (account: Account) => void;
   imageScope: string;
   onBack: () => void;
   onDiary: () => void;
@@ -89,6 +103,14 @@ export default function OnlineChat({
   reviewing: boolean;
   poemFont?: string;
 }) {
+  const [entryThrough, setEntryThrough] = useState<number | null>(null);
+  const [browsingHistory, setBrowsingHistory] = useState(false);
+  const collapsingGap = useRef(false);
+  const dragStartY = useRef(0);
+  const draggingToLatest = useRef(false);
+  const [chatHeight, setChatHeight] = useState(0);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState("");
   const [messages, setMessages] = useState<OnlineMessage[]>([]);
   const [input, setInput] = useState("");
   const [draft, setDraft] = useState("");
@@ -122,7 +144,12 @@ export default function OnlineChat({
   const place = places[session.place_id];
   async function reload() {
     const next = await api<OnlineMessage[]>(`/sessions/${session.id}/messages`);
-    if (mounted.current) setMessages(next);
+    if (mounted.current) {
+      setEntryThrough(
+        (current) => current ?? Math.max(0, ...next.map((m) => m.id)),
+      );
+      setMessages(next);
+    }
   }
   useEffect(() => {
     mounted.current = true;
@@ -197,6 +224,7 @@ export default function OnlineChat({
     }
     atBottom.current = true;
     userHasScrolled.current = false;
+    setBrowsingHistory(false);
     try {
       await streamChat(session.id, pending.text, pending.id, (event) => {
         if (!mounted.current) return;
@@ -224,6 +252,66 @@ export default function OnlineChat({
         setStatus("");
       }
     }
+  }
+  const display = splitChatDisplay(
+    messages,
+    entryThrough ?? Number.MAX_SAFE_INTEGER,
+    account.show_history,
+  );
+  async function saveProfile(
+    patch: Partial<Pick<Account, "gender" | "show_history">>,
+  ) {
+    if (savingProfile) return;
+    setSavingProfile(true);
+    setProfileError("");
+    try {
+      const next = await api<Account>("/me", "PATCH", patch);
+      if (mounted.current) onProfileChange(next);
+    } catch {
+      if (mounted.current)
+        setProfileError("설정을 저장하지 못했습니다. 다시 시도해 주세요.");
+    } finally {
+      if (mounted.current) setSavingProfile(false);
+    }
+  }
+  function renderMessage(message: OnlineMessage) {
+    return message.role === "assistant" ? (
+      <View key={message.id} style={{ gap: 10 }}>
+        {message.artwork && (
+          <AssistantBubble
+            avatar={places[message.place_id ?? session.place_id].avatar}
+          >
+            <ChatArtwork
+              artwork={message.artwork}
+              imageScope={imageScope}
+              viewport={imageViewport}
+              poemFont={poemFont}
+            />
+          </AssistantBubble>
+        )}
+        <AssistantBubble
+          avatar={places[message.place_id ?? session.place_id].avatar}
+        >
+          <Copy>
+            {message.artwork ? message.artwork.interpretation : message.text}
+          </Copy>
+        </AssistantBubble>
+      </View>
+    ) : (
+      <View
+        key={message.id}
+        style={{
+          alignSelf: message.role === "user" ? "flex-end" : "flex-start",
+          maxWidth: "90%",
+          backgroundColor: message.role === "user" ? "#E7EEDBD9" : "#FFFCF0D9",
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+          borderRadius: 22,
+        }}
+      >
+        <Copy>{message.text}</Copy>
+      </View>
+    );
   }
   return (
     <ImageBackground source={place.background} style={styles.screen}>
@@ -312,10 +400,31 @@ export default function OnlineChat({
                 ref={scroll}
                 onLayout={(event) => {
                   viewportHeight.current = event.nativeEvent.layout.height;
+                  setChatHeight(event.nativeEvent.layout.height);
                   scrollToLatest();
                 }}
                 onScrollBeginDrag={() => {
                   userHasScrolled.current = true;
+                  if (!browsingHistory && display.previous.length > 0) {
+                    collapsingGap.current = true;
+                    setBrowsingHistory(true);
+                  }
+                }}
+                onTouchStart={(event) => {
+                  dragStartY.current = event.nativeEvent.pageY;
+                  draggingToLatest.current = false;
+                }}
+                onTouchMove={(event) => {
+                  draggingToLatest.current =
+                    event.nativeEvent.pageY < dragStartY.current - 20;
+                }}
+                onScrollEndDrag={() => {
+                  if (atBottom.current && draggingToLatest.current)
+                    setBrowsingHistory(false);
+                }}
+                onMomentumScrollEnd={() => {
+                  if (atBottom.current && draggingToLatest.current)
+                    setBrowsingHistory(false);
                 }}
                 keyboardShouldPersistTaps="handled"
                 contentContainerStyle={{
@@ -347,82 +456,63 @@ export default function OnlineChat({
                 }}
                 scrollEventThrottle={100}
                 onContentSizeChange={(_width, height) => {
+                  if (collapsingGap.current) {
+                    collapsingGap.current = false;
+                    scroll.current?.scrollToEnd({ animated: false });
+                    imageViewport.refresh();
+                    return;
+                  }
                   if (!loading && height <= viewportHeight.current + 1)
                     imageViewport.enable();
                   scrollToLatest();
                 }}
               >
-                {!messages.length && !loading && (
-                  <AssistantBubble avatar={place.avatar}>
-                    <Copy>{place.greeting}</Copy>
-                  </AssistantBubble>
+                {display.previous.length > 0 && (
+                  <View style={{ gap: 14 }}>
+                    {display.previous.map(renderMessage)}
+                  </View>
                 )}
-                {messages.map((message) =>
-                  message.role === "assistant" ? (
-                    <View key={message.id} style={{ gap: 10 }}>
-                      {message.artwork && (
-                        <AssistantBubble
-                          avatar={
-                            places[message.place_id ?? session.place_id].avatar
-                          }
-                        >
-                          <ChatArtwork
-                            artwork={message.artwork}
-                            imageScope={imageScope}
-                            viewport={imageViewport}
-                            poemFont={poemFont}
-                          />
-                        </AssistantBubble>
-                      )}
-                      <AssistantBubble
-                        avatar={
-                          places[message.place_id ?? session.place_id].avatar
-                        }
+                <View
+                  style={{
+                    minHeight: browsingHistory
+                      ? 0
+                      : Math.max(0, chatHeight - 16),
+                    justifyContent: "flex-end",
+                    gap: 14,
+                  }}
+                >
+                  {!display.current.length && !loading && (
+                    <AssistantBubble avatar={place.avatar}>
+                      <Copy>{place.greeting}</Copy>
+                    </AssistantBubble>
+                  )}
+                  {display.current.map(renderMessage)}
+                  {(draft || status || loading) && (
+                    <AssistantBubble avatar={place.avatar}>
+                      <Copy>
+                        {draft || status || "기록을 불러오고 있어요…"}
+                      </Copy>
+                    </AssistantBubble>
+                  )}
+                  {(activeJob || reviewing) && (
+                    <AssistantBubble avatar={place.avatar}>
+                      <Text
+                        accessibilityLiveRegion="polite"
+                        style={{
+                          color: "#423C33",
+                          fontSize: 13,
+                          lineHeight: 20,
+                        }}
                       >
-                        <Copy>
-                          {message.artwork
-                            ? message.artwork.interpretation
-                            : message.text}
-                        </Copy>
-                      </AssistantBubble>
-                    </View>
-                  ) : (
-                    <View
-                      key={message.id}
-                      style={{
-                        alignSelf:
-                          message.role === "user" ? "flex-end" : "flex-start",
-                        maxWidth: "90%",
-                        backgroundColor:
-                          message.role === "user" ? "#E7EEDBD9" : "#FFFCF0D9",
-                        paddingHorizontal: 14,
-                        paddingVertical: 10,
-                        borderRadius: 22,
-                      }}
-                    >
-                      <Copy>{message.text}</Copy>
-                    </View>
-                  ),
-                )}
-                {(draft || status || loading) && (
-                  <AssistantBubble avatar={place.avatar}>
-                    <Copy>{draft || status || "기록을 불러오고 있어요…"}</Copy>
-                  </AssistantBubble>
-                )}
-                {(activeJob || reviewing) && (
-                  <AssistantBubble avatar={place.avatar}>
-                    <Text
-                      accessibilityLiveRegion="polite"
-                      style={{ color: "#423C33", fontSize: 13, lineHeight: 20 }}
-                    >
-                      {reviewing
-                        ? "그림일기를 위한 대화를 정리하고 있어요…"
-                        : activeJob?.stage === "explaining"
-                          ? "그림과 시가 완성되어 소개할 이야기를 준비하고 있어요."
-                          : "그림과 시를 만들고 있어요. 기다리는 동안 계속 이야기해도 좋아요."}
-                    </Text>
-                  </AssistantBubble>
-                )}
+                        {reviewing
+                          ? "그림일기를 위한 대화를 정리하고 있어요…"
+                          : activeJob?.stage === "explaining"
+                            ? "그림과 시가 완성되어 소개할 이야기를 준비하고 있어요."
+                            : "그림과 시를 만들고 있어요. 기다리는 동안 계속 이야기해도 좋아요."}
+                      </Text>
+                    </AssistantBubble>
+                  )}
+                </View>
               </ScrollView>
               <View
                 style={{
@@ -502,6 +592,17 @@ export default function OnlineChat({
       </SafeAreaView>
       {settingsOpen && (
         <Sheet title="공간의 소리와 빛" onClose={() => setSettingsOpen(false)}>
+          <View style={[styles.row, { flexWrap: "wrap" }]}>
+            <Copy>이전 대화 불러오기</Copy>
+            <Switch
+              accessibilityLabel="이전 대화 불러오기"
+              value={account.show_history}
+              disabled={savingProfile}
+              onValueChange={(show_history) =>
+                void saveProfile({ show_history })
+              }
+            />
+          </View>
           <Sound placeId={session.place_id} />
           <View
             style={{
@@ -563,6 +664,22 @@ export default function OnlineChat({
               setSettingsOpen(false);
             }}
           />
+          <View
+            style={{
+              backgroundColor: "#EEEDE5",
+              borderRadius: 20,
+              padding: 12,
+              gap: 8,
+            }}
+          >
+            <GenderSelector
+              value={account.gender}
+              disabled={savingProfile}
+              onChange={(gender) => void saveProfile({ gender })}
+            />
+            <Copy muted>변경한 성별은 다음 작품부터 반영돼요.</Copy>
+            {profileError ? <Copy>{profileError}</Copy> : null}
+          </View>
         </Sheet>
       )}
     </ImageBackground>

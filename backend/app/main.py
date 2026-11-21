@@ -3,7 +3,7 @@ import asyncio
 import json
 import secrets
 import time
-from typing import Annotated
+from typing import Annotated, Literal
 from fastapi import FastAPI, Depends, HTTPException, Header, Request
 from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel, Field
@@ -28,6 +28,11 @@ class Credentials(BaseModel):
     username: str = Field(pattern=r'^[a-zA-Z0-9_]{4,40}$')
     password: str = Field(min_length=10, max_length=128)
     nickname: str = Field(default='', max_length=40)
+    gender: Literal['male', 'female'] = 'male'
+
+class ProfileUpdate(BaseModel):
+    gender: Literal['male', 'female'] | None = None
+    show_history: bool | None = None
 
 class SessionInput(BaseModel):
     place_id: str
@@ -64,7 +69,7 @@ def register(body: Credentials, request: Request):
     limit(request.client.host if request.client else 'unknown', 'register', 10)
     with Db() as db:
         user = User(username=body.username.lower(), nickname=body.nickname.strip() or body.username,
-                    password_hash=hash_password(body.password))
+                    password_hash=hash_password(body.password), gender=body.gender)
         db.add(user)
         try:
             db.commit()
@@ -96,7 +101,20 @@ def logout(user: UserId, authorization: str = Header()):
 def me(user: UserId):
     with Db() as db:
         row = db.get(User,user)
-        return {'id':user,'nickname':row.nickname,'ai_mode':AI_MODE}
+        return {'id':user,'nickname':row.nickname,'ai_mode':AI_MODE, 'gender':row.gender, 'show_history':row.show_history}
+
+@app.patch('/me')
+def update_profile(body: ProfileUpdate, user: UserId):
+    with Db() as db:
+        row = db.get(User, user)
+        if body.gender is not None:
+            row.gender = body.gender
+        if body.show_history is not None:
+            row.show_history = body.show_history
+        db.commit()
+        return {'id':user, 'nickname':row.nickname, 'ai_mode':AI_MODE,
+                'gender':row.gender, 'show_history':row.show_history}
+
 
 @app.post('/sessions')
 def new_session(body: SessionInput, user: UserId):
@@ -235,13 +253,13 @@ async def preview(session_id: str, user: UserId):
     with Db() as db:
         owned(db, Conversation, session_id, user)
     try:
-        story, through = await prepare_story(user)
+        story, through, source_after, source_end = await prepare_story(user, include_source=True)
     except Exception:
         raise HTTPException(502, '이번 작품의 이야기를 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.')
     if not story:
         raise HTTPException(422, '그림에 담고 싶은 이야기를 먼저 들려주세요.')
     with Db() as db:
-        snapshot = ArtPreview(user_id=user, session_id=session_id, source_through=through, story=story)
+        snapshot = ArtPreview(user_id=user, session_id=session_id, source_through=through, story=story, source_after=source_after, source_end=source_end)
         db.add(snapshot)
         db.commit()
         return {'summary':story, 'preview_id':snapshot.id}
@@ -255,14 +273,17 @@ def create_job(body: JobInput,user: UserId):
         old = db.scalar(select(Job).where(Job.user_id==user,Job.request_id==body.request_id))
         if old:
             return job_json(old)
+        source_after = source_end = None
         through = None  # 이전 앱의 요청은 범위를 임의로 소비하지 않습니다.
         if body.preview_id:
             snapshot = owned(db, ArtPreview, body.preview_id, user)
             if snapshot.session_id != body.session_id:
                 raise HTTPException(422, '이야기를 확인한 공간이 다릅니다. 다시 확인해 주세요.')
             through = snapshot.source_through
+            source_after, source_end = snapshot.source_after, snapshot.source_end
         row = Job(id=uid(),user_id=user,session_id=body.session_id,request_id=body.request_id,
-            approved_summary=body.approved_summary.strip(), source_through=through)
+            approved_summary=body.approved_summary.strip(), source_through=through,
+            source_after=source_after, source_end=source_end, gender_snapshot=db.get(User, user).gender)
         try:
             db.add(row)
             db.flush()
@@ -306,6 +327,20 @@ def diaries(user: UserId):
     with Db() as db:
         return [{key:getattr(r,key) for key in ('id','job_id','title','poem','interpretation','created')}
             for r in db.scalars(select(Diary).where(Diary.user_id==user).order_by(Diary.created.desc()))]
+
+@app.get('/diaries/{diary_id}/messages')
+def diary_messages(diary_id: str, user: UserId):
+    with Db() as db:
+        diary = owned(db, Diary, diary_id, user)
+        job = owned(db, Job, diary.job_id, user)
+        if job.source_after is None or job.source_end is None:
+            return {'available':False, 'messages':[]}
+        origins = places_by_session(db, user)
+        rows = db.scalars(message_query(user).where(
+            Message.id > job.source_after, Message.id <= job.source_end,
+            ~Message.request_id.in_(select(Job.id).where(Job.user_id == user))).order_by(Message.id))
+        return {'available':True, 'messages':[message_json(row, origins.get(row.session_id)) for row in rows]}
+
 
 @app.get('/diaries/{diary_id}/image')
 def image(diary_id: str,user: UserId):

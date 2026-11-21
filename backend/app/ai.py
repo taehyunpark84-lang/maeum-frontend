@@ -9,7 +9,7 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 from .config import API_KEY, AI_MODE
 from .tuning import TEXT_PROFILES, IMAGE_OPTIONS, PROMPT_VERSION
-from .db import Db, Metric, Job
+from .db import Db, Metric, Job, User
 from sqlalchemy import select
 from .art_direction import COMFORT, SUBJECTS, STYLES, choose_style, choose_direction
 from .chat_text import model_history
@@ -24,6 +24,22 @@ SAFETY = '''당신은 가상의 AI 대화 상대다. 실제 전문가나 성직�
 def chat_instructions(place):
     return '\n\n'.join([SAFETY, (PROMPTS/'common.txt').read_text(encoding='utf-8'),
                            (PROMPTS/f'{place}.txt').read_text(encoding='utf-8')])
+
+def gender_instruction(gender):
+    if gender not in ('male', 'female'):
+        return ''  # 이미 접수된 기존 작업의 조건은 바꾸지 않습니다.
+    label = '남성' if gender == 'male' else '여성'
+    return (f'현재 사용자 설정 성별은 {label}이다. 과거 기록의 추측보다 이 설정을 우선한다. '
+            f'그림에 사용자를 나타내는 인물이 필요한 경우 그 인물은 {label}으로 표현한다. '
+            '다른 등장인물의 성별은 대화 맥락을 따르고 모두 같은 성별로 만들지 않는다. '
+            '성별만으로 외모·직업·성격을 단정하거나 불필요하게 인물을 추가하지 않는다.')
+
+
+def user_gender_instruction(user):
+    with Db() as db:
+        row = db.get(User, user)
+        return gender_instruction(row.gender) if row else ''
+
 
 @lru_cache
 def client():
@@ -57,6 +73,7 @@ async def stream_chat(user, place, history):
 다른 공간의 과거 발화를 현재 캐릭터의 정체성이나 말투로 이어받지 않는다.
 현재 캐릭터의 자연스러운 대화문만 답한다. 출처/역할 표시, JSON, 채널명 final/analysis는 출력하지 않는다.
 내부 출처 목록: ''' + json.dumps(origins, ensure_ascii=False)
+    instructions += '\n' + user_gender_instruction(user)
     async with client().responses.stream(**profile, instructions=instructions, input=messages, store=False) as stream:
         async for event in stream:
             if event.type == 'response.output_text.delta':
@@ -124,7 +141,7 @@ class ArtPlan(BaseModel):
     interpretation: str = Field(max_length=1500)
     image_prompt: str = Field(max_length=8000)
 
-async def plan_art(user, approved_summary):
+async def plan_art(user, approved_summary, gender=None):
     if AI_MODE == 'mock':
         return ArtPlan(title='잠시 머무는 빛 · 시연', poem='서두르지 않아도\n빛은 창가에 머물고\n오늘의 마음은\n천천히 자리를 찾는다',
             interpretation='시연 예시 작품입니다. 실제 맞춤 생성이 아닙니다.', image_prompt='mock')
@@ -143,7 +160,7 @@ image_prompt는 이미지 모델에게 전달할 구체적인 미술 연출 지�
     recent_styles = [value.get('style', '') for value in recent]
     available_styles = [style for style in STYLES if style not in recent_styles] or list(STYLES)
     direction = choose_direction([value.get('image_prompt', '') for value in recent[:2]])
-    visual_brief = COMFORT + '\n' + SUBJECTS + '\n' + direction
+    visual_brief = COMFORT + '\n' + SUBJECTS + '\n' + direction + '\n' + gender_instruction(gender)
     visual_brief += '\n매체 특성에 맞춰 색과 질감을 해석하고 선택한 화풍의 고유한 특징을 분명히 표현하라.'
     instructions += '\n' + visual_brief
     instructions += '\n대화의 핵심 대상과 감정에 적합한 화풍을 다음 후보에서 하나 선택하고, style에 후보 문자열을 그대로 기록하라. 무작위 선택보다 이야기와의 적합성을 우선한다:\n' + json.dumps(available_styles, ensure_ascii=False)

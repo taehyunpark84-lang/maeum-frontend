@@ -51,7 +51,7 @@ async def process(job_id, owner):
             plan = ArtPlan.model_validate_json(job.plan)
         else:
             patch_job(job_id, owner, stage='writing')
-            plan = await plan_art(job.user_id, job.approved_summary)
+            plan = await plan_art(job.user_id, job.approved_summary, job.gender_snapshot)
             patch_job(job_id, owner, plan=plan.model_dump_json())
         patch_job(job_id, owner, stage='drawing')
         image_dir = DATA/'images'

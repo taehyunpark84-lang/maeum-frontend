@@ -11,7 +11,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button, Copy, Field, styles } from "../../components/ui";
 import { places } from "../../config/assets";
-import { api, saveToken } from "../../services/api";
+import GenderSelector from "./GenderSelector";
+import { api, saveToken, type Gender } from "../../services/api";
 
 export default function AuthScreen({
   onLogin,
@@ -20,6 +21,7 @@ export default function AuthScreen({
   onLogin: () => Promise<void>;
   logoFont?: string;
 }) {
+  const [gender, setGender] = useState<Gender>("male");
   const [register, setRegister] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -35,6 +37,7 @@ export default function AuthScreen({
         username: username.trim(),
         password,
         nickname: nickname.trim(),
+        gender,
       };
       if (register) await api("/auth/register", "POST", body);
       const result = await api<{ token: string }>("/auth/login", "POST", body);
@@ -109,6 +112,13 @@ export default function AuthScreen({
               editable={!busy}
               autoCapitalize="none"
             />
+            {register && (
+              <GenderSelector
+                value={gender}
+                onChange={setGender}
+                disabled={busy}
+              />
+            )}
             {error ? <Copy>{error}</Copy> : null}
             <Button
               label={

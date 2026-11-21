@@ -1,7 +1,7 @@
 """SQLite와 MySQL에서 같은 ORM을 사용합니다. 운영 스키마는 Alembic으로 관리합니다."""
 import time
 import uuid
-from sqlalchemy import create_engine, event, String, Text, Integer, Float, ForeignKey, UniqueConstraint
+from sqlalchemy import create_engine, event, String, Text, Integer, Boolean, Float, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from .config import DATABASE_URL
 
@@ -27,6 +27,8 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(40), unique=True)
     nickname: Mapped[str] = mapped_column(String(40))
     password_hash: Mapped[str] = mapped_column(String(256))
+    gender: Mapped[str] = mapped_column(String(6), default="male", server_default="male")
+    show_history: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
 class Login(Base):
     __tablename__ = 'logins'
@@ -82,6 +84,9 @@ class Job(Base):
     request_id: Mapped[str] = mapped_column(String(36))
     approved_summary: Mapped[str] = mapped_column(Text)
     source_through: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    source_after: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    source_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    gender_snapshot: Mapped[str | None] = mapped_column(String(6), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default='queued')
     stage: Mapped[str] = mapped_column(String(30), default='queued')
     plan: Mapped[str] = mapped_column(Text, default='')
@@ -99,6 +104,8 @@ class ArtPreview(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), index=True)
     session_id: Mapped[str] = mapped_column(ForeignKey('conversations.id'))
     source_through: Mapped[int] = mapped_column(Integer)
+    source_after: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    source_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
     story: Mapped[str] = mapped_column(Text)
     created: Mapped[float] = mapped_column(Float(53), default=time.time)
 

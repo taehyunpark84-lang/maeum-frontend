@@ -7,7 +7,14 @@ import type { PlaceId } from "../types";
 export const API_URL = (
   process.env.EXPO_PUBLIC_API_URL || "http://127.0.0.1:8000"
 ).replace(/\/$/, "");
-export type Account = { id: string; nickname: string; ai_mode: string };
+export type Gender = "male" | "female";
+export type Account = {
+  id: string;
+  nickname: string;
+  ai_mode: string;
+  gender: Gender;
+  show_history: boolean;
+};
 export type OnlineSession = { id: string; place_id: PlaceId; created: number };
 export type OnlineMessage = {
   place_id?: PlaceId;

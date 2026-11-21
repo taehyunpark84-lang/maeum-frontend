@@ -16,7 +16,7 @@ def recent_items(rows, origins, max_chars=24000):
     return context_items(list(reversed(selected)), origins)
 
 
-async def prepare_story(user):
+async def prepare_story(user, include_source=False):
     with Db() as db:
         completed = select(Job).join(Diary, Diary.job_id == Job.id).where(
             Job.user_id == user, Diary.user_id == user, Job.status == 'completed')
@@ -26,13 +26,21 @@ async def prepare_story(user):
             Job.user_id == user, Diary.user_id == user, Job.status == 'completed')) or 0
         # 생성 작품의 설명/시는 새 대화 소재로 다시 투입하지 않습니다.
         query = message_query(user).where(~Message.request_id.in_(select(Job.id).where(Job.user_id == user)))
-        latest_user = db.scalar(query.where(Message.role == 'user').order_by(Message.id.desc()).limit(1))
+        source_end = db.scalar(query.with_only_columns(func.max(Message.id))) or 0
+        latest_user = db.scalar(query.where(Message.role == 'user', Message.id <= source_end).order_by(Message.id.desc()).limit(1))
         snapshot = latest_user.id if latest_user else through
         previous_story = last.approved_summary if last else ''
+        # 소비 체크포인트와 열람 범위를 분리합니다. 재해석 작품은 원래 범위를 재사용합니다.
+        previous_range = (last.source_after, last.source_end) if last else (None, None)
+        first_new = db.scalar(query.where(Message.role == 'user', Message.id > through, Message.id <= source_end)
+            .order_by(Message.id).limit(1))
+        source_range = (first_new.id - 1, source_end) if first_new else previous_range
+        def result(story, bounds):
+            return (story, snapshot, *bounds) if include_source else (story, snapshot)
         new_rows = list(db.scalars(query.where(Message.id > through, Message.id <= snapshot)
             .order_by(Message.id.desc()).limit(60)))
         if not any(row.role == 'user' for row in new_rows):
-            return previous_story, snapshot
+            return result(previous_story, previous_range)
         background = list(db.scalars(query.where(Message.id <= through).order_by(Message.id.desc()).limit(12)))
         origins = places_by_session(db, user)
         memory = db.get(UserMemory, user)
@@ -40,5 +48,5 @@ async def prepare_story(user):
     decision = await ai.select_art_story(user, recent_items(new_rows, origins),
         recent_items(background, origins, 8000), reference, previous_story)
     if not decision.has_new_material and previous_story:
-        return previous_story, snapshot
-    return decision.story.strip(), snapshot
+        return result(previous_story, previous_range)
+    return result(decision.story.strip(), source_range)

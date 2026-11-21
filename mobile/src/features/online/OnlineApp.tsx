@@ -45,11 +45,13 @@ import { saveArtwork } from "../../services/saveArtwork";
 import PlaceCards from "../PlaceCards";
 import AuthScreen from "./AuthScreen";
 import OnlineChat from "./OnlineChat";
+import ArtworkHistory from "./ArtworkHistory";
 import JobStatus from "./JobStatus";
 import ArtworkImage, { useImageViewport } from "./ArtworkImage";
 import type { PlaceId } from "../../types";
 
 export default function OnlineApp() {
+  const [historyArt, setHistoryArt] = useState<Artwork | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
   const galleryScroll = useRef<ScrollViewInstance>(null);
   const imageViewport = useImageViewport(galleryScroll);
@@ -59,7 +61,7 @@ export default function OnlineApp() {
       void Image.clearMemoryCache().catch(() => {});
       void Image.clearDiskCache().catch(() => {});
     },
-    [account],
+    [account?.id],
   );
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<"places" | "gallery">("places");
@@ -130,6 +132,7 @@ export default function OnlineApp() {
           setAccount(null);
           setChat(null);
           setArt(null);
+          setHistoryArt(null);
           setPreview(null);
           setArtworks([]);
           setJobs([]);
@@ -158,6 +161,10 @@ export default function OnlineApp() {
   useEffect(() => () => audio.dispose(), [audio]);
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (historyArt) {
+        setHistoryArt(null);
+        return true;
+      }
       if (art) {
         setArt(null);
         return true;
@@ -169,7 +176,7 @@ export default function OnlineApp() {
       return false;
     });
     return () => sub.remove();
-  }, [art, tab, chat]);
+  }, [art, tab, chat, historyArt]);
 
   async function perform(action: () => Promise<void>) {
     if (actionLock.current) return;
@@ -234,6 +241,7 @@ export default function OnlineApp() {
       setAccount(null);
       setChat(null);
       setArt(null);
+      setHistoryArt(null);
       setPreview(null);
       setSettings(false);
       setArtworks([]);
@@ -265,10 +273,18 @@ export default function OnlineApp() {
     );
   return (
     <View style={{ flex: 1 }}>
+      {historyArt && (
+        <ArtworkHistory
+          artwork={historyArt}
+          onClose={() => setHistoryArt(null)}
+        />
+      )}
       {chat ? (
         <OnlineChat
           key={chat.id}
           imageScope={imageScope}
+          account={account}
+          onProfileChange={setAccount}
           session={chat}
           onBack={() => setChat(null)}
           onDiary={() => void prepareDiary()}
@@ -370,6 +386,11 @@ export default function OnlineApp() {
                       Alert.alert("저장 완료", result);
                     })
                   }
+                />
+                <Button
+                  label="이 작품의 대화 보기"
+                  secondary
+                  onPress={() => setHistoryArt(art)}
                 />
                 <Copy muted>
                   시는 사진에 합성하지 않습니다. 사진첩에는 그림만 저장됩니다.
